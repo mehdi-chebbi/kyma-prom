@@ -1,0 +1,299 @@
+{{- if .Values.global.istio.enabled }}
+---
+# Istio Gateway for LDAP Manager
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ldap-manager-gateway
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "ldap-manager.localhost"
+    - "ldap-manager.local"
+    - "ldap-api.local"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: ldap-manager-tls
+    hosts:
+    - "ldap-manager.localhost"
+    - "ldap-manager.local"
+    - "ldap-api.local"
+---
+# VirtualService for LDAP Manager routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ldap-manager-vs
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  hosts:
+  - "ldap-manager.localhost"
+  - "ldap-manager.local"
+  - "ldap-api.local"
+  - "ldap-manager.dev-platform.svc.cluster.local"
+  gateways:
+  - ldap-manager-gateway
+  - mesh
+  http:
+  # GraphQL endpoint
+  - name: "graphql-api"
+    match:
+    - uri:
+        prefix: /graphql
+    route:
+    - destination:
+        host: ldap-manager.dev-platform.svc.cluster.local
+        port:
+          number: 8080
+        subset: v1
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    corsPolicy:
+      allowOrigins:
+      - exact: "http://localhost:5173"
+      - exact: "http://localhost:3000"
+      - prefix: "http://localhost"
+      - regex: ".*\\.local"
+      allowMethods:
+      - POST
+      - GET
+      - OPTIONS
+      - PUT
+      - DELETE
+      allowHeaders:
+      - content-type
+      - authorization
+      - x-request-id
+      - x-b3-traceid
+      - x-b3-spanid
+      - x-b3-parentspanid
+      - x-b3-sampled
+      - x-b3-flags
+      exposeHeaders:
+      - x-custom-header
+      maxAge: "24h"
+      allowCredentials: true
+  # Health check endpoint
+  - name: "health-check"
+    match:
+    - uri:
+        exact: /health
+    route:
+    - destination:
+        host: ldap-manager.dev-platform.svc.cluster.local
+        port:
+          number: 8080
+        subset: v1
+    timeout: 5s
+  # Readiness check endpoint
+  - name: "readiness-check"
+    match:
+    - uri:
+        exact: /ready
+    route:
+    - destination:
+        host: ldap-manager.dev-platform.svc.cluster.local
+        port:
+          number: 8080
+        subset: v1
+    timeout: 5s
+  # Metrics endpoint (restricted to mesh only)
+  - name: "metrics"
+    match:
+    - uri:
+        exact: /metrics
+      gateways:
+      - mesh
+    route:
+    - destination:
+        host: ldap-manager.dev-platform.svc.cluster.local
+        port:
+          number: 9090
+        subset: v1
+    timeout: 10s
+---
+# DestinationRule for traffic policy and mTLS
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ldap-manager-dr
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  host: ldap-manager.dev-platform.svc.cluster.local
+  trafficPolicy:
+    # Connection pool settings
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 2
+    # Load balancer settings
+    loadBalancer:
+      simple: LEAST_REQUEST
+      localityLbSetting:
+        enabled: true
+    # Outlier detection for circuit breaking
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+    # mTLS settings
+    tls:
+      mode: ISTIO_MUTUAL
+  subsets:
+  - name: v1
+    labels:
+      app: ldap-manager
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 100
+        http:
+          http1MaxPendingRequests: 50
+          http2MaxRequests: 100
+---
+# PeerAuthentication for enforcing mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: ldap-manager-mtls
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: ldap-manager
+  mtls:
+    mode: STRICT
+---
+# RequestAuthentication for JWT validation via Keycloak
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: ldap-manager-jwt
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: ldap-manager
+  jwtRules:
+  - issuer: "http://localhost:30080/realms/devplatform"
+    jwksUri: "http://keycloak.auth-system.svc.cluster.local:8080/realms/devplatform/protocol/openid-connect/certs"
+    forwardOriginalToken: true
+---
+# AuthorizationPolicy for access control
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ldap-manager-authz
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: ldap-manager
+  action: ALLOW
+  rules:
+  # Allow health checks from anywhere
+  - to:
+    - operation:
+        paths: ["/health", "/ready"]
+        methods: ["GET"]
+  # Allow login mutation without authentication
+  - to:
+    - operation:
+        paths: ["/graphql"]
+        methods: ["POST", "OPTIONS"]
+  # Allow GraphQL from authenticated sources (Keycloak JWT)
+  - to:
+    - operation:
+        paths: ["/graphql"]
+        methods: ["POST", "GET", "OPTIONS"]
+    from:
+    - source:
+        requestPrincipals: ["*"]
+  # Allow metrics scraping from Prometheus
+  - to:
+    - operation:
+        paths: ["/metrics"]
+        methods: ["GET"]
+    from:
+    - source:
+        namespaces: ["istio-system", "monitoring"]
+---
+# ServiceEntry for external OpenLDAP instance
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-openldap
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  hosts:
+  - "openldap1.dev-platform.svc.cluster.local"
+  ports:
+  - number: 389
+    name: ldap
+    protocol: TCP
+  - number: 636
+    name: ldaps
+    protocol: TLS
+  location: MESH_INTERNAL
+  resolution: DNS
+---
+# VirtualService for Gitea Service communication
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gitea-service-internal-vs
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  hosts:
+  - "gitea-service.dev-platform.svc.cluster.local"
+  gateways:
+  - mesh
+  http:
+  - match:
+    - sourceLabels:
+        app: ldap-manager
+    route:
+    - destination:
+        host: gitea-service.dev-platform.svc.cluster.local
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+{{- end }}

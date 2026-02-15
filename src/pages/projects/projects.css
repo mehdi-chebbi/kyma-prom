@@ -1,0 +1,157 @@
+.projects-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  color: var(--light-purple-900);
+  align-items: center;
+}
+
+.projects-topbar {
+  width: 100%;
+  max-width: 1400px;
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.projects-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.projects-search {
+  flex: 1;
+  background: var(--bg-black-200);
+  border: 1px solid var(--bg-black-400);
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: var(--light-purple-900);
+  outline: none;
+}
+
+.projects-search:focus {
+  border-color: var(--light-purple-700);
+}
+
+.projects-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.projects-view-btn {
+  background: var(--bg-black-200);
+  border: 1px solid var(--bg-black-400);
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--light-purple-900);
+}
+
+.projects-view-btn:hover {
+  background: var(--bg-black-400);
+}
+
+.projects-add-btn {
+  background: white;
+  color: black;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  border: none;
+}
+
+/* ---------------- Main Grid ---------------- */
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 2rem;
+  justify-content: center;
+  width: 100%;
+  max-width: 1400px;
+}
+
+/* ---------------- Widgets ---------------- */
+
+.usage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.usage-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.projects-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ---------------- Branch Picker ---------------- */
+
+.branch-select {
+  width: 100%;
+  background: var(--bg-black-300);
+  border: 1px solid var(--bg-black-400);
+  color: white;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.branch-select:focus {
+  border-color: var(--light-blue-600);
+}
+
+.branch-select option {
+  background: var(--bg-black-300);
+  color: white;
+}
+
+/* ---------------- Project Cards ---------------- */
+
+@media (max-width: 900px) {
+  .projects-page {
+    padding: 1rem;
+  }
+
+  .projects-topbar {
+    width: 100%;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .projects-search {
+    width: 100%;
+  }
+
+  .projects-actions {
+    justify-content: flex-end;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .projects-view-btn,
+  .projects-add-btn {
+    padding: 6px 10px;
+  }
+
+  .projects-page {
+    padding: 0.5rem;
+  }
+}

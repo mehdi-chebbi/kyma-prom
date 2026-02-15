@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-service
+  namespace: dev-platform
+  labels:
+    app: gitea-service
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 30011
+    targetPort: 8081
+    protocol: TCP
+  - name: metrics
+    port: 30013
+    targetPort: 9091
+    protocol: TCP
+  selector:
+    app: gitea-service

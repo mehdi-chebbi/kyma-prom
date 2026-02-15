@@ -1,0 +1,176 @@
+@import "tailwindcss";
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: white;
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --expanded: 16rem;
+  --collapsed: 3.25rem;
+  --item: 2.5rem;
+  --br: 0.75rem;
+
+  --dark-purple: hsl(258, 63%, 48%);
+  --light-purple: hsl(293, 84%, 76%);
+  --light-blue: hsl(231, 96%, 62%);
+  --light-pink: hsl(283, 87%, 88%);
+  --bg-black: hsl(0, 0%, 0%);
+
+  --dark-purple-100: hsl(258, 63%, 12%);
+  --dark-purple-200: hsl(258, 63%, 20%);
+  --dark-purple-300: hsl(258, 63%, 32%);
+  --dark-purple-400: hsl(258, 63%, 40%);
+  --dark-purple-500: hsl(258, 63%, 48%); /* base */
+  --dark-purple-600: hsl(258, 63%, 56%);
+  --dark-purple-700: hsl(258, 63%, 64%);
+  --dark-purple-800: hsl(258, 63%, 72%);
+  --dark-purple-900: hsl(258, 63%, 80%);
+  --dark-purple-1000: hsl(258, 63%, 92%);
+
+  --light-purple-100: hsl(293, 84%, 20%);
+  --light-purple-200: hsl(293, 84%, 35%);
+  --light-purple-300: hsl(293, 84%, 50%);
+  --light-purple-400: hsl(293, 84%, 60%);
+  --light-purple-500: hsl(293, 84%, 76%); /* base */
+  --light-purple-600: hsl(293, 84%, 82%);
+  --light-purple-700: hsl(293, 84%, 88%);
+  --light-purple-800: hsl(293, 84%, 92%);
+  --light-purple-900: hsl(293, 84%, 96%);
+  --light-purple-1000: hsl(293, 84%, 98%);
+
+  --light-blue-100: hsl(231, 96%, 20%);
+  --light-blue-200: hsl(231, 96%, 35%);
+  --light-blue-300: hsl(231, 96%, 45%);
+  --light-blue-400: hsl(231, 96%, 55%);
+  --light-blue-500: hsl(231, 96%, 62%); /* base */
+  --light-blue-600: hsl(231, 96%, 70%);
+  --light-blue-700: hsl(231, 96%, 78%);
+  --light-blue-800: hsl(231, 96%, 85%);
+  --light-blue-900: hsl(231, 96%, 92%);
+  --light-blue-1000: hsl(231, 96%, 96%);
+
+  --light-pink-100: hsl(283, 87%, 20%);
+  --light-pink-200: hsl(283, 87%, 35%);
+  --light-pink-300: hsl(283, 87%, 50%);
+  --light-pink-400: hsl(283, 87%, 65%);
+  --light-pink-500: hsl(283, 87%, 88%); /* base */
+  --light-pink-600: hsl(283, 87%, 90%);
+  --light-pink-700: hsl(283, 87%, 92%);
+  --light-pink-800: hsl(283, 87%, 95%);
+  --light-pink-900: hsl(283, 87%, 97%);
+  --light-pink-1000: hsl(283, 87%, 99%);
+
+  --bg-black-100: hsl(0, 0%, 4%);
+  --bg-black-200: hsl(0, 0%, 8%);
+  --bg-black-300: hsl(0, 0%, 12%);
+  --bg-black-400: hsl(0, 0%, 16%);
+  --bg-black-500: hsl(0, 0%, 24%);
+  --bg-black-600: hsl(0, 0%, 32%);
+  --bg-black-700: hsl(0, 0%, 48%);
+  --bg-black-800: hsl(0, 0%, 64%);
+  --bg-black-900: hsl(0, 0%, 80%);
+  --bg-black-1000: hsl(0, 0%, 96%);
+}
+
+.dashboard-page {
+  color: var(--light-purple-900);
+}
+
+/* Title Section */
+.dashboard-page-title {
+  margin-bottom: 2rem;
+  padding-left: 1rem;
+}
+
+.dashboard-page-title h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--light-purple-1000);
+}
+
+.dashboard-page-title p {
+  opacity: 0.7;
+  margin-top: 0.3rem;
+}
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+body{
+  background-color: var(--bg-black);
+}
+
+.submit-button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--dark-purple);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.submit-button:hover {
+  background-color: var(--dark-purple-600);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+
+}
+/* ─────────────────────────────── */
+/*          TABLE WRAPPER          */
+/* ─────────────────────────────── */
+.table-wrapper {
+  background: var(--bg-black-300);
+  border-radius: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--bg-black-500);
+  margin-top: 1rem;
+}
+
+button{
+    transition: background-color 0.35s ease-in-out;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}

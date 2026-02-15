@@ -1,0 +1,87 @@
+.select-wrapper {
+  position: relative;
+  font-size: 0.9rem;
+  min-width: 150px;
+}
+
+.select-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.5rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--light-blue-600);
+  background: var(--bg-black-200);
+  color: var(--dark-purple-1000);
+  cursor: pointer;
+  transition: border-color 0.25s, background 0.25s, border-radius 0.3s ease;
+  width: 100%; 
+  box-sizing: border-box; 
+}
+
+.select-wrapper.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.select-display span {
+  white-space: nowrap;       /* prevent wrapping */
+  overflow: hidden;          /* hide overflow */
+  text-overflow: ellipsis;   /* show ... if text too long */
+}
+
+.select-display.open {
+  border-radius: 0.8rem 0.8rem 0 0;
+}
+
+
+.select-display:hover {
+  background: var(--bg-black-300);
+  border-color: var(--light-blue-800);
+}
+
+.select-arrow {
+  margin-left: 0.25rem;
+  transition: transform 0.3s ease, color 0.25s;
+}
+
+.select-arrow.rotate {
+  transform: rotate(180deg);
+}
+
+.options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 0;
+  overflow: hidden;
+  background: var(--bg-black-200);
+  border: 1px solid var(--light-blue-600);
+  border-top: none;
+  border-radius: 0 0 0.8rem 0.8rem;
+  margin-top: -1px;
+  list-style: none;
+  padding: 0;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  z-index: 10;
+}
+
+.options.show {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.options li {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: background 0.25s;
+  white-space: nowrap;       /* prevent wrapping in dropdown items */
+  overflow: hidden;          
+  text-overflow: ellipsis;
+}
+
+.options li:hover {
+  background: var(--bg-black-300);
+}

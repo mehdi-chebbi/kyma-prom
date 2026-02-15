@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gitea-service
+  namespace: {{ include "gitea-service.namespace" . }}
+  labels:
+    {{- include "gitea-service.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "gitea-service.selectorLabels" . | nindent 6 }}

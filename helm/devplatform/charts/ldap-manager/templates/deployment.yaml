@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ldap-manager.fullname" . }}
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "ldap-manager.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ldap-manager.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ldap-manager
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ldap-manager
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: ldap-manager
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: LDAP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: LDAP_URL
+        - name: LDAP_BASE_DN
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: LDAP_BASE_DN
+        - name: LDAP_BIND_DN
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: LDAP_BIND_DN
+        - name: LDAP_BIND_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ldap-manager-secret
+              key: LDAP_BIND_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ldap-manager-secret
+              key: JWT_SECRET
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: PORT
+        - name: METRICS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: METRICS_PORT
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: ENVIRONMENT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: LOG_LEVEL
+        - name: LDAP_POOL_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: LDAP_POOL_SIZE
+        - name: STARTING_UID
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: STARTING_UID
+        - name: STARTING_GID
+          valueFrom:
+            configMapKeyRef:
+              name: ldap-manager-config
+              key: STARTING_GID
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ldap-manager
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}

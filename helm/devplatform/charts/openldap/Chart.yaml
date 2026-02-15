@@ -1,0 +1,6 @@
+apiVersion: v2
+name: openldap
+description: OpenLDAP StatefulSet with persistent storage
+type: application
+version: 0.1.0
+appVersion: "1.5.0"

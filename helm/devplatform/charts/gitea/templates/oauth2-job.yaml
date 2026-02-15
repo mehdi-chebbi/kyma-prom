@@ -1,0 +1,104 @@
+{{- if .Values.oauth2Job.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-oauth2-setup-script
+  namespace: {{ include "gitea.namespace" . }}
+  labels:
+    {{- include "gitea.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "19"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  setup-oauth2.sh: |
+    #!/bin/bash
+    set -e
+    echo "Waiting for Gitea to be ready..."
+    until curl -sf http://gitea.dev-platform:3000/api/healthz > /dev/null; do
+      echo "Gitea not ready yet, waiting..."
+      sleep 5
+    done
+    echo "Gitea is ready! Configuring OAuth2..."
+
+    GITEA_ADMIN_TOKEN="${GITEA_ADMIN_TOKEN}"
+
+    OAUTH_EXISTS=$(curl -s -H "Authorization: token ${GITEA_ADMIN_TOKEN}" \
+      http://gitea.dev-platform:3000/api/v1/admin/orgs/org/sources | \
+      jq -r '.[] | select(.name=="Keycloak") | .name' || echo "")
+
+    if [ -z "$OAUTH_EXISTS" ]; then
+      echo "Creating Keycloak OAuth2 authentication source..."
+      curl -X POST http://gitea.dev-platform:3000/api/v1/admin/auth/sources \
+        -H "Authorization: token ${GITEA_ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "Keycloak",
+          "type": "oauth2",
+          "config": {
+            "provider": "openidConnect",
+            "client_id": "gitea-service",
+            "client_secret": "'"${GITEA_CLIENT_SECRET}"'",
+            "openid_connect_auto_discovery_url": "http://keycloak.auth-system:8080/realms/devplatform/.well-known/openid-configuration",
+            "icon_url": "https://www.keycloak.org/resources/images/keycloak_icon_512px.svg",
+            "scopes": ["openid", "profile", "email"],
+            "required_claim_name": "",
+            "required_claim_value": "",
+            "group_claim_name": "groups",
+            "admin_group": "admins",
+            "restricted_group": "",
+            "skip_local_2fa": false
+          }
+        }'
+      echo ""
+      echo "OAuth2 source created successfully!"
+    else
+      echo "OAuth2 source already exists, skipping..."
+    fi
+    echo "Configuration complete!"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gitea-oauth2-setup
+  namespace: {{ include "gitea.namespace" . }}
+  labels:
+    {{- include "gitea.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "gitea.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: oauth2-setup
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - /scripts/setup-oauth2.sh
+          env:
+            - name: GITEA_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-admin-secret
+                  key: ADMIN_TOKEN
+            - name: GITEA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-keycloak-client-secret
+                  key: CLIENT_SECRET
+          volumeMounts:
+            - name: setup-script
+              mountPath: /scripts
+      volumes:
+        - name: setup-script
+          configMap:
+            name: gitea-oauth2-setup-script
+            defaultMode: 0755
+{{- end }}

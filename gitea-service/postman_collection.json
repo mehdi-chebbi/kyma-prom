@@ -1,0 +1,1644 @@
+{
+	"info": {
+		"_postman_id": "gitea-service-graphql-tests",
+		"name": "Gitea Service - GraphQL API Tests",
+		"description": "Complete test collection for the Gitea GraphQL service with all queries and mutations",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testOwner",
+			"value": "testuser",
+			"type": "string"
+		},
+		{
+			"key": "testRepo",
+			"value": "test-repository",
+			"type": "string"
+		},
+		{
+			"key": "orgName",
+			"value": "test-org",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health & Stats",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query {\n  health {\n    status\n    service\n    gitea {\n      status\n      message\n    }\n    timestamp\n  }\n}",
+								"variables": ""
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Repository Stats",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query {\n  repositoryStats {\n    totalRepositories\n    totalForks\n    totalStars\n    totalSize\n  }\n}",
+								"variables": ""
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Repository Queries",
+			"item": [
+				{
+					"name": "List Repositories",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListRepositories($limit: Int, $offset: Int) {\n  listRepositories(limit: $limit, offset: $offset) {\n    repositories {\n      id\n      name\n      fullName\n      description\n      private\n      fork\n      size\n      starsCount\n      forksCount\n      createdAt\n      updatedAt\n      owner {\n        login\n        fullName\n      }\n    }\n    total\n    limit\n    offset\n  }\n}",
+								"variables": "{\n  \"limit\": 10,\n  \"offset\": 0\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Repositories",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query SearchRepositories($query: String, $limit: Int, $offset: Int) {\n  searchRepositories(query: $query, limit: $limit, offset: $offset) {\n    repositories {\n      id\n      name\n      fullName\n      description\n      starsCount\n    }\n    total\n  }\n}",
+								"variables": "{\n  \"query\": \"test\",\n  \"limit\": 10,\n  \"offset\": 0\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetRepository($owner: String!, $name: String!) {\n  getRepository(owner: $owner, name: $name) {\n    id\n    name\n    fullName\n    description\n    private\n    htmlUrl\n    cloneUrl\n    sshUrl\n    defaultBranch\n    starsCount\n    forksCount\n    watchersCount\n    openIssuesCount\n    size\n    createdAt\n    updatedAt\n    owner {\n      login\n      fullName\n      avatarUrl\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"name\": \"{{testRepo}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "My Repositories",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query MyRepositories($limit: Int, $offset: Int) {\n  myRepositories(limit: $limit, offset: $offset) {\n    repositories {\n      id\n      name\n      fullName\n      description\n      private\n      starsCount\n    }\n    total\n  }\n}",
+								"variables": "{\n  \"limit\": 10,\n  \"offset\": 0\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Repository Mutations",
+			"item": [
+				{
+					"name": "Create Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateRepository($name: String!, $description: String, $private: Boolean, $autoInit: Boolean) {\n  createRepository(name: $name, description: $description, private: $private, autoInit: $autoInit) {\n    id\n    name\n    fullName\n    description\n    private\n    htmlUrl\n    cloneUrl\n    defaultBranch\n  }\n}",
+								"variables": "{\n  \"name\": \"new-test-repo\",\n  \"description\": \"Test repository created via GraphQL\",\n  \"private\": false,\n  \"autoInit\": true\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation UpdateRepository($owner: String!, $name: String!, $description: String, $private: Boolean) {\n  updateRepository(owner: $owner, name: $name, description: $description, private: $private) {\n    id\n    name\n    description\n    private\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"name\": \"{{testRepo}}\",\n  \"description\": \"Updated description\",\n  \"private\": false\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fork Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation ForkRepository($owner: String!, $repo: String!, $organization: String) {\n  forkRepository(owner: $owner, repo: $repo, organization: $organization) {\n    id\n    name\n    fullName\n    fork\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Migrate Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation MigrateRepository($cloneAddr: String!, $repoName: String!, $private: Boolean, $mirror: Boolean, $service: String) {\n  migrateRepository(cloneAddr: $cloneAddr, repoName: $repoName, private: $private, mirror: $mirror, service: $service) {\n    id\n    name\n    fullName\n    cloneUrl\n  }\n}",
+								"variables": "{\n  \"cloneAddr\": \"https://github.com/username/repo.git\",\n  \"repoName\": \"migrated-repo\",\n  \"private\": false,\n  \"mirror\": false,\n  \"service\": \"github\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation DeleteRepository($owner: String!, $name: String!) {\n  deleteRepository(owner: $owner, name: $name)\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"name\": \"repo-to-delete\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Branch Operations",
+			"item": [
+				{
+					"name": "List Branches",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListBranches($owner: String!, $repo: String!, $page: Int, $limit: Int) {\n  listBranches(owner: $owner, repo: $repo, page: $page, limit: $limit) {\n    name\n    commit {\n      id\n      message\n      author {\n        name\n        email\n      }\n    }\n    protected\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Branch",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetBranch($owner: String!, $repo: String!, $branch: String!) {\n  getBranch(owner: $owner, repo: $repo, branch: $branch) {\n    name\n    commit {\n      id\n      message\n      author {\n        name\n        email\n      }\n      committer {\n        name\n        email\n      }\n    }\n    protected\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"branch\": \"main\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Branch",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateBranch($owner: String!, $repo: String!, $branchName: String!, $oldBranchName: String!) {\n  createBranch(owner: $owner, repo: $repo, branchName: $branchName, oldBranchName: $oldBranchName) {\n    name\n    commit {\n      id\n      message\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"branchName\": \"feature/new-branch\",\n  \"oldBranchName\": \"main\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Branch",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation DeleteBranch($owner: String!, $repo: String!, $branch: String!) {\n  deleteBranch(owner: $owner, repo: $repo, branch: $branch)\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"branch\": \"feature/old-branch\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Commit & Tag Operations",
+			"item": [
+				{
+					"name": "List Commits",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListCommits($owner: String!, $repo: String!, $sha: String, $page: Int, $limit: Int) {\n  listCommits(owner: $owner, repo: $repo, sha: $sha, page: $page, limit: $limit) {\n    id\n    message\n    author {\n      name\n      email\n      date\n    }\n    committer {\n      name\n      email\n      date\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Commit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetCommit($owner: String!, $repo: String!, $sha: String!) {\n  getCommit(owner: $owner, repo: $repo, sha: $sha) {\n    id\n    message\n    author {\n      name\n      email\n      date\n    }\n    committer {\n      name\n      email\n      date\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"sha\": \"abc123\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Tags",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListTags($owner: String!, $repo: String!, $page: Int, $limit: Int) {\n  listTags(owner: $owner, repo: $repo, page: $page, limit: $limit) {\n    name\n    message\n    id\n    commit {\n      id\n      message\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Tag",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateTag($owner: String!, $repo: String!, $tagName: String!, $target: String!, $message: String) {\n  createTag(owner: $owner, repo: $repo, tagName: $tagName, target: $target, message: $message) {\n    name\n    message\n    id\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"tagName\": \"v1.0.0\",\n  \"target\": \"main\",\n  \"message\": \"Release version 1.0.0\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Tag",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation DeleteTag($owner: String!, $repo: String!, $tag: String!) {\n  deleteTag(owner: $owner, repo: $repo, tag: $tag)\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"tag\": \"v0.1.0\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Pull Request Operations",
+			"item": [
+				{
+					"name": "List Pull Requests",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListPullRequests($owner: String!, $repo: String!, $state: String, $page: Int, $limit: Int) {\n  listPullRequests(owner: $owner, repo: $repo, state: $state, page: $page, limit: $limit) {\n    id\n    number\n    title\n    body\n    state\n    createdAt\n    updatedAt\n    user {\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"state\": \"open\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pull Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetPullRequest($owner: String!, $repo: String!, $number: Int!) {\n  getPullRequest(owner: $owner, repo: $repo, number: $number) {\n    id\n    number\n    title\n    body\n    state\n    createdAt\n    updatedAt\n    user {\n      login\n      fullName\n    }\n    base {\n      ref\n    }\n    head {\n      ref\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Pull Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreatePullRequest($owner: String!, $repo: String!, $title: String!, $body: String, $head: String!, $base: String!) {\n  createPullRequest(owner: $owner, repo: $repo, title: $title, body: $body, head: $head, base: $base) {\n    id\n    number\n    title\n    body\n    state\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"title\": \"New feature implementation\",\n  \"body\": \"This PR implements a new feature\",\n  \"head\": \"feature/new-feature\",\n  \"base\": \"main\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Pull Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation UpdatePullRequest($owner: String!, $repo: String!, $number: Int!, $title: String, $body: String, $state: String) {\n  updatePullRequest(owner: $owner, repo: $repo, number: $number, title: $title, body: $body, state: $state) {\n    id\n    number\n    title\n    body\n    state\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"title\": \"Updated PR title\",\n  \"body\": \"Updated description\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Merge Pull Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation MergePullRequest($owner: String!, $repo: String!, $number: Int!, $method: String, $deleteBranchAfterMerge: Boolean) {\n  mergePullRequest(owner: $owner, repo: $repo, number: $number, method: $method, deleteBranchAfterMerge: $deleteBranchAfterMerge)\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"method\": \"merge\",\n  \"deleteBranchAfterMerge\": false\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Is PR Merged",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query IsPRMerged($owner: String!, $repo: String!, $number: Int!) {\n  isPRMerged(owner: $owner, repo: $repo, number: $number)\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List PR Comments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListPRComments($owner: String!, $repo: String!, $number: Int!, $page: Int, $limit: Int) {\n  listPRComments(owner: $owner, repo: $repo, number: $number, page: $page, limit: $limit) {\n    id\n    body\n    createdAt\n    updatedAt\n    user {\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create PR Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreatePRComment($owner: String!, $repo: String!, $number: Int!, $body: String!) {\n  createPRComment(owner: $owner, repo: $repo, number: $number, body: $body) {\n    id\n    body\n    createdAt\n    user {\n      login\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"body\": \"This looks good to me!\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List PR Reviews",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListPRReviews($owner: String!, $repo: String!, $number: Int!, $page: Int, $limit: Int) {\n  listPRReviews(owner: $owner, repo: $repo, number: $number, page: $page, limit: $limit) {\n    id\n    body\n    state\n    createdAt\n    user {\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create PR Review",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreatePRReview($owner: String!, $repo: String!, $number: Int!, $event: String!, $body: String) {\n  createPRReview(owner: $owner, repo: $repo, number: $number, event: $event, body: $body) {\n    id\n    body\n    state\n    createdAt\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"event\": \"APPROVE\",\n  \"body\": \"Approved! Great work.\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List PR Files",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListPRFiles($owner: String!, $repo: String!, $number: Int!, $page: Int, $limit: Int) {\n  listPRFiles(owner: $owner, repo: $repo, number: $number, page: $page, limit: $limit) {\n    filename\n    status\n    additions\n    deletions\n    changes\n  }\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1,\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get PR Diff",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetPRDiff($owner: String!, $repo: String!, $number: Int!) {\n  getPRDiff(owner: $owner, repo: $repo, number: $number)\n}",
+								"variables": "{\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\",\n  \"number\": 1\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Issue Operations",
+			"item": [
+				{
+					"name": "List Issues",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListIssues($repo: String!, $owner: String, $state: String, $page: Int, $limit: Int) {\n  listIssues(repo: $repo, owner: $owner, state: $state, page: $page, limit: $limit) {\n    id\n    number\n    title\n    body\n    state\n    createdAt\n    updatedAt\n    user {\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"state\": \"open\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Issue",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetIssue($repo: String!, $owner: String, $number: Int!) {\n  getIssue(repo: $repo, owner: $owner, number: $number) {\n    id\n    number\n    title\n    body\n    state\n    createdAt\n    updatedAt\n    user {\n      login\n      fullName\n    }\n    labels {\n      id\n      name\n      color\n    }\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"number\": 1\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Issue",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateIssue($repo: String!, $owner: String, $title: String!, $body: String, $assignees: [String], $labels: [Int]) {\n  createIssue(repo: $repo, owner: $owner, title: $title, body: $body, assignees: $assignees, labels: $labels) {\n    id\n    number\n    title\n    body\n    state\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"title\": \"Bug: Application crashes on startup\",\n  \"body\": \"Description of the bug...\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Issue",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation UpdateIssue($repo: String!, $owner: String, $number: Int!, $title: String, $body: String, $state: String) {\n  updateIssue(repo: $repo, owner: $owner, number: $number, title: $title, body: $body, state: $state) {\n    id\n    number\n    title\n    body\n    state\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"number\": 1,\n  \"title\": \"Updated issue title\",\n  \"state\": \"closed\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Issue Comments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListIssueComments($repo: String!, $owner: String, $number: Int!) {\n  listIssueComments(repo: $repo, owner: $owner, number: $number) {\n    id\n    body\n    createdAt\n    updatedAt\n    user {\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"number\": 1\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Issue Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateIssueComment($repo: String!, $owner: String, $number: Int!, $body: String!) {\n  createIssueComment(repo: $repo, owner: $owner, number: $number, body: $body) {\n    id\n    body\n    createdAt\n    user {\n      login\n    }\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"number\": 1,\n  \"body\": \"I'm working on this issue.\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Labels",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListLabels($repo: String!, $owner: String, $page: Int, $limit: Int) {\n  listLabels(repo: $repo, owner: $owner, page: $page, limit: $limit) {\n    id\n    name\n    color\n    description\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Label",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateLabel($repo: String!, $owner: String, $name: String!, $color: String!, $description: String) {\n  createLabel(repo: $repo, owner: $owner, name: $name, color: $color, description: $description) {\n    id\n    name\n    color\n    description\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"name\": \"bug\",\n  \"color\": \"#d73a4a\",\n  \"description\": \"Something isn't working\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Milestones",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListMilestones($repo: String!, $owner: String, $state: String, $page: Int, $limit: Int) {\n  listMilestones(repo: $repo, owner: $owner, state: $state, page: $page, limit: $limit) {\n    id\n    title\n    description\n    state\n    openIssues\n    closedIssues\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"state\": \"open\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Milestone",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateMilestone($repo: String!, $owner: String, $title: String!, $description: String, $state: String) {\n  createMilestone(repo: $repo, owner: $owner, title: $title, description: $description, state: $state) {\n    id\n    title\n    description\n    state\n  }\n}",
+								"variables": "{\n  \"repo\": \"{{testRepo}}\",\n  \"owner\": \"{{testOwner}}\",\n  \"title\": \"v1.0.0\",\n  \"description\": \"First stable release\",\n  \"state\": \"open\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User Sync Operations",
+			"item": [
+				{
+					"name": "Get Gitea User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetGiteaUser($username: String!) {\n  giteaUser(username: $username) {\n    id\n    login\n    fullName\n    email\n    avatarUrl\n    isAdmin\n    created\n  }\n}",
+								"variables": "{\n  \"username\": \"testuser\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Gitea Users",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query SearchGiteaUsers($query: String!, $limit: Int) {\n  searchGiteaUsers(query: $query, limit: $limit) {\n    id\n    login\n    fullName\n    email\n    avatarUrl\n  }\n}",
+								"variables": "{\n  \"query\": \"test\",\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sync LDAP User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation SyncLDAPUser($uid: String!, $defaultPassword: String) {\n  syncLDAPUser(uid: $uid, defaultPassword: $defaultPassword) {\n    id\n    login\n    fullName\n    email\n    created\n  }\n}",
+								"variables": "{\n  \"uid\": \"john.doe\",\n  \"defaultPassword\": \"changeme123\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sync All LDAP Users",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation SyncAllLDAPUsers($defaultPassword: String) {\n  syncAllLDAPUsers(defaultPassword: $defaultPassword) {\n    id\n    login\n    fullName\n    email\n  }\n}",
+								"variables": "{\n  \"defaultPassword\": \"changeme123\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Team Operations",
+			"item": [
+				{
+					"name": "List Teams",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ListTeams($orgName: String!, $page: Int, $limit: Int) {\n  listTeams(orgName: $orgName, page: $page, limit: $limit) {\n    id\n    name\n    description\n    permission\n  }\n}",
+								"variables": "{\n  \"orgName\": \"{{orgName}}\",\n  \"page\": 1,\n  \"limit\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetTeam($teamId: Int!) {\n  getTeam(teamId: $teamId) {\n    id\n    name\n    description\n    permission\n    members {\n      id\n      login\n      fullName\n    }\n    repositories {\n      id\n      name\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"teamId\": 1\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateTeam($orgName: String!, $name: String!, $description: String, $permission: String!) {\n  createTeam(orgName: $orgName, name: $name, description: $description, permission: $permission) {\n    id\n    name\n    description\n    permission\n  }\n}",
+								"variables": "{\n  \"orgName\": \"{{orgName}}\",\n  \"name\": \"developers\",\n  \"description\": \"Development team\",\n  \"permission\": \"write\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Team Member",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation AddTeamMember($teamId: Int!, $username: String!) {\n  addTeamMember(teamId: $teamId, username: $username) {\n    id\n    name\n    members {\n      id\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"teamId\": 1,\n  \"username\": \"john.doe\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Team Member",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation RemoveTeamMember($teamId: Int!, $username: String!) {\n  removeTeamMember(teamId: $teamId, username: $username) {\n    id\n    name\n  }\n}",
+								"variables": "{\n  \"teamId\": 1,\n  \"username\": \"john.doe\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Team Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation AddTeamRepository($teamId: Int!, $owner: String!, $repo: String!) {\n  addTeamRepository(teamId: $teamId, owner: $owner, repo: $repo) {\n    id\n    name\n    repositories {\n      id\n      name\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"teamId\": 1,\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Team Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation RemoveTeamRepository($teamId: Int!, $owner: String!, $repo: String!) {\n  removeTeamRepository(teamId: $teamId, owner: $owner, repo: $repo) {\n    id\n    name\n  }\n}",
+								"variables": "{\n  \"teamId\": 1,\n  \"owner\": \"{{testOwner}}\",\n  \"repo\": \"{{testRepo}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sync LDAP Group to Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation SyncGroupToTeam($groupCn: String!, $orgName: String!, $teamName: String, $permission: String!) {\n  syncGroupToTeam(groupCn: $groupCn, orgName: $orgName, teamName: $teamName, permission: $permission) {\n    team {\n      id\n      name\n      description\n    }\n    membersAdded\n    membersFailed\n    repositoriesAdded\n    repositoriesFailed\n    errors\n  }\n}",
+								"variables": "{\n  \"groupCn\": \"developers\",\n  \"orgName\": \"{{orgName}}\",\n  \"teamName\": \"dev-team\",\n  \"permission\": \"write\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

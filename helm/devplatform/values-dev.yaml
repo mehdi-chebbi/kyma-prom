@@ -1,0 +1,157 @@
+# Development environment overrides
+# Usage: helm install devplatform ./helm/devplatform -f ./helm/devplatform/values-dev.yaml
+
+global:
+  domain: devplatform.local
+  storageClass: local-path
+  imagePullPolicy: IfNotPresent
+
+  jwtSecret: "dev-jwt-secret-not-for-production"
+
+  ldap:
+    adminPassword: "admin123"
+    configPassword: "config123"
+
+  keycloak:
+    adminPassword: "admin_password_change_me"
+    clientSecrets:
+      giteaService: "gitea_service_client_secret_change_me"
+      ldapManager: "ldap_manager_client_secret_change_me"
+      frontendAdmin: "frontend_admin_client_secret_change_me"
+
+  gitea:
+    adminPassword: "Admin123!"
+
+  istio:
+    enabled: true
+
+# ── Dev-specific subchart overrides ──
+
+auth:
+  enabled: true
+  postgres:
+    storage: 5Gi
+    password: "keycloak_db_password_change_me"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  memcached:
+    replicas: 1
+    memory: 128
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+  keycloak:
+    replicas: 1
+    storage: 2Gi
+    service:
+      type: LoadBalancer
+      port: 30080
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  ldapConfigJob:
+    enabled: true
+
+openldap:
+  enabled: true
+  storage:
+    data: 2Gi
+    config: 512Mi
+  service:
+    type: LoadBalancer
+    ldapPort: 30000
+    ldapsPort: 30001
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+ldap-manager:
+  enabled: true
+  replicas: 1
+  poolSize: 5
+  service:
+    type: LoadBalancer
+    httpPort: 30008
+    metricsPort: 30007
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+gitea:
+  enabled: true
+  storage: 5Gi
+  database: sqlite3
+  service:
+    type: LoadBalancer
+    httpPort: 30009
+    sshPort: 30010
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  oauth2Job:
+    enabled: true
+
+gitea-service:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    httpPort: 30011
+    metricsPort: 30013
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+  controller:
+    enabled: true
+    storage: 100Mi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+codeserver:
+  enabled: true
+  replicas: 1
+  pvcSize: 5Gi
+  service:
+    type: LoadBalancer
+    httpPort: 30012
+    metricsPort: 30014
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

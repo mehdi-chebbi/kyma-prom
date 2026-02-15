@@ -1,0 +1,53 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak-http
+  namespace: auth-system
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`keycloak.localhost`)
+      kind: Rule
+      services:
+        - name: keycloak
+          port: 8080
+      middlewares:
+        - name: keycloak-headers
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: keycloak-headers
+  namespace: auth-system
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "http"
+      X-Forwarded-Host: "keycloak.localhost"
+    customResponseHeaders:
+      X-Frame-Options: "SAMEORIGIN"
+      X-Content-Type-Options: "nosniff"
+      X-XSS-Protection: "1; mode=block"
+
+---
+# Service Monitor for Prometheus metrics
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-metrics
+  namespace: auth-system
+  labels:
+    app: keycloak
+    monitoring: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9000
+      targetPort: 9000
+      protocol: TCP
+  selector:
+    app: keycloak

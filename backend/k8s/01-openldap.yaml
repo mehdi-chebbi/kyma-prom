@@ -1,0 +1,175 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-platform
+
+---
+# Secret for LDAP credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openldap-secret
+  namespace: dev-platform
+type: Opaque
+stringData:
+  LDAP_ADMIN_PASSWORD: "admin123"
+  LDAP_CONFIG_PASSWORD: "config123"
+
+---
+# ConfigMap for LDAP configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openldap-config
+  namespace: dev-platform
+data:
+  LDAP_ORGANISATION: "DevPlatform"
+  LDAP_DOMAIN: "devplatform.local"
+  LDAP_BASE_DN: "dc=devplatform,dc=local"
+  LDAP_TLS: "false"
+  LDAP_LOG_LEVEL: "256"
+
+---
+# StatefulSet for OpenLDAP
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openldap
+  namespace: dev-platform
+  labels:
+    app: openldap
+spec:
+  serviceName: openldap
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openldap
+  template:
+    metadata:
+      labels:
+        app: openldap
+    spec:
+      containers:
+      - name: openldap
+        image: osixia/openldap:1.5.0
+        env:
+        - name: LDAP_ORGANISATION
+          valueFrom:
+            configMapKeyRef:
+              name: openldap-config
+              key: LDAP_ORGANISATION
+        - name: LDAP_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: openldap-config
+              key: LDAP_DOMAIN
+        - name: LDAP_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: openldap-secret
+              key: LDAP_ADMIN_PASSWORD
+        - name: LDAP_CONFIG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: openldap-secret
+              key: LDAP_CONFIG_PASSWORD
+        - name: LDAP_TLS
+          valueFrom:
+            configMapKeyRef:
+              name: openldap-config
+              key: LDAP_TLS
+        - name: LDAP_LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: openldap-config
+              key: LDAP_LOG_LEVEL
+        ports:
+        - containerPort: 389
+          name: ldap
+          protocol: TCP
+        - containerPort: 636
+          name: ldaps
+          protocol: TCP
+        volumeMounts:
+        - name: ldap-data
+          mountPath: /var/lib/ldap
+        - name: ldap-config
+          mountPath: /etc/ldap/slapd.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 389
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 389
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+  volumeClaimTemplates:
+  - metadata:
+      name: ldap-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi
+  - metadata:
+      name: ldap-config
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+
+---
+# Service for OpenLDAP
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+  namespace: dev-platform
+  labels:
+    app: openldap
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 30000
+    targetPort: 389
+    protocol: TCP
+    name: ldap
+  - port: 30001
+    targetPort: 636
+    protocol: TCP
+    name: ldaps
+  selector:
+    app: openldap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap1
+  namespace: dev-platform
+spec:
+  selector:
+    app: openldap
+  ports:
+    - name: ldap
+      port: 389
+      targetPort: 389
+    - name: ldaps
+      port: 636
+      targetPort: 636
+  type: ClusterIP

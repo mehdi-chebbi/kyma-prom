@@ -1,0 +1,114 @@
+@keyframes modalFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  animation: modalFadeSlide 0.25s ease forwards;
+}
+
+.confirm-modal-card.confirm-modal-3parts {
+  scroll-behavior: auto;
+  max-height: 90vh;
+  width: 480px;
+  background: var(--bg-black-300);
+  border-radius: 1rem;
+  padding: 0;
+  color: var(--dark-purple-1000);
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+  overflow-x: hidden;
+  border: 1px solid var(--bg-black-500);
+  animation: modalFadeSlide 0.25s ease forwards;
+}
+
+.confirm-modal-header {
+  padding: 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--bg-black-500);
+}
+
+.confirm-modal-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.confirm-modal-body {
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-size: 1rem;
+  gap: 1rem;
+}
+
+.confirm-modal-footer {
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--bg-black-200);
+  border-top: 1px solid var(--bg-black-500);
+}
+
+.cancel-btn {
+  background: var(--bg-black-500);
+  color: var(--dark-purple-1000);
+  padding: 0.6rem 1.1rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cancel-btn:hover {
+  background: var(--bg-black-600);
+}
+
+.submit-btn {
+  background: var(--light-blue-600);
+  color: var(--bg-black-200);
+  padding: 0.6rem 1.3rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.25s;
+}
+
+.submit-btn:hover {
+  background: var(--light-blue-700);
+  color: var(--dark-purple-1000);
+}
+
+@media (max-width: 520px) {
+  .confirm-modal-card.confirm-modal-3parts {
+    width: 92%;
+    max-width: 92%;
+  }
+
+  .confirm-modal-footer {
+    padding: 1rem;
+    flex-direction: column-reverse;
+  }
+
+  .submit-btn,
+  .cancel-btn {
+    width: 100%;
+  }
+}

@@ -1,0 +1,31 @@
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--light-purple-500, #a78bfa);
+  cursor: pointer;
+}
+
+.form-group textarea {
+  width: 100%;
+  background: var(--bg-black-100, #1e1e2e);
+  border: 1px solid var(--bg-black-400, #444);
+  border-radius: 0.5rem;
+  color: inherit;
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--light-purple-500, #a78bfa);
+}

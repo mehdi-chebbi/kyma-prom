@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: memcached
+  namespace: {{ include "auth.namespace" . }}
+  labels:
+    app: memcached
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  serviceName: memcached
+  replicas: {{ .Values.memcached.replicas }}
+  selector:
+    matchLabels:
+      app: memcached
+  template:
+    metadata:
+      labels:
+        app: memcached
+        version: v1
+    spec:
+      containers:
+        - name: memcached
+          image: memcached:1.6-alpine
+          ports:
+            - containerPort: 11211
+              name: memcached
+              protocol: TCP
+          command:
+            - memcached
+            - -m
+            - {{ .Values.memcached.memory | quote }}
+            - -c
+            - {{ .Values.memcached.connections | quote }}
+            - -I
+            - {{ .Values.memcached.maxItemSize | quote }}
+            - -v
+          resources:
+            {{- toYaml .Values.memcached.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: 11211
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 11211
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - memcached
+                topologyKey: kubernetes.io/hostname

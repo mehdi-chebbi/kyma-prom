@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ldap-manager.fullname" . }}
+  namespace: {{ include "ldap-manager.namespace" . }}
+  labels:
+    {{- include "ldap-manager.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "ldap-manager.selectorLabels" . | nindent 6 }}

@@ -1,0 +1,85 @@
+.sidebar {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--bg-black-200);
+  color: var(--light-purple-800);
+  padding: 1rem 0.25rem 1rem 0.25rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+/* -------- LEFT -------- */
+.sidebar.left {
+  left: 0;
+  border-right: 1px solid var(--dark-purple-400);
+  border-radius: 0 8px 8px 0;
+}
+
+.sidebar.left.open {
+  padding-left: 0;
+  left: 0;
+}
+
+/* -------- RIGHT -------- */
+.sidebar.right {
+  right: 0;
+  border:1px;
+  border-left: 1px solid var(--dark-purple-400);
+  border-radius: 8px 0 0 8px;
+}
+
+.sidebar.right.open {
+  right: 0;
+  border-top: 1px solid var(--dark-purple-400);
+  border-bottom: 1px solid var(--dark-purple-400);
+}
+
+/* -------- TOGGLE -------- */
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--dark-purple-500);
+  color: white;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  z-index: 51;
+}
+
+.sidebar.left .sidebar-toggle {
+  right: -20px;
+}
+
+.sidebar.right .sidebar-toggle {
+  left: -20px;
+}
+
+.sidebar-toggle .arrow {
+  transition: transform 0.3s ease;
+}
+
+.sidebar.right .arrow {
+  transform: rotate(180deg);
+}
+.sidebar.left .arrow {
+  transform: rotate(360deg);
+}
+
+
+.sidebar.right .sidebar-toggle .arrow.open {
+  margin-left: 0.25rem;
+  transform: rotate(360deg);
+}
+.sidebar.left .sidebar-toggle .arrow.open {
+  transform: rotate(180deg);
+}

@@ -1,0 +1,194 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea-service
+  namespace: dev-platform
+  labels:
+    app: gitea-service
+    version: v1.0.0
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: gitea-service
+  template:
+    metadata:
+      labels:
+        app: gitea-service
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: gitea-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: gitea-service
+        image: gitea-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8081
+          protocol: TCP
+        - name: metrics
+          containerPort: 9091
+          protocol: TCP
+        env:
+        - name: GITEA_URL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: GITEA_URL
+        - name: GITEA_ADMIN_USER
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: GITEA_ADMIN_USER
+        - name: GITEA_ADMIN_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: GITEA_ADMIN_EMAIL
+        - name: GITEA_DEFAULT_OWNER
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: GITEA_DEFAULT_OWNER
+        - name: GITEA_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: gitea-service-secret
+              key: GITEA_ADMIN_PASSWORD
+        - name: LDAP_MANAGER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: LDAP_MANAGER_URL
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: PORT
+        - name: METRICS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: METRICS_PORT
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: ENVIRONMENT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: LOG_LEVEL
+        - name: HTTP_CLIENT_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: HTTP_CLIENT_TIMEOUT
+        - name: JWT_EXPIRATION
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: JWT_EXPIRATION
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: CORS_ORIGINS
+        - name: SHUTDOWN_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: SHUTDOWN_TIMEOUT
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: gitea-service-secret
+              key: JWT_SECRET
+        - name: GITEA_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: gitea-service-secret
+              key: GITEA_WEBHOOK_SECRET
+        - name: RECONCILE_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: RECONCILE_INTERVAL
+        - name: WEBHOOK_CHECK_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: WEBHOOK_CHECK_INTERVAL
+        - name: WEBHOOK_TARGET_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: WEBHOOK_TARGET_HOST
+        - name: RECONCILE_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-service-config
+              key: RECONCILE_ENABLED
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - gitea-service
+              topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitea-service
+  namespace: dev-platform

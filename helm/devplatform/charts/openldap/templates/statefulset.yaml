@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "openldap.fullname" . }}
+  namespace: {{ include "openldap.namespace" . }}
+  labels:
+    {{- include "openldap.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "openldap.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "openldap.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openldap.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: openldap
+          image: {{ .Values.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: LDAP_ORGANISATION
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-config
+                  key: LDAP_ORGANISATION
+            - name: LDAP_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-config
+                  key: LDAP_DOMAIN
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-secret
+                  key: LDAP_ADMIN_PASSWORD
+            - name: LDAP_CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-secret
+                  key: LDAP_CONFIG_PASSWORD
+            - name: LDAP_TLS
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-config
+                  key: LDAP_TLS
+            - name: LDAP_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-config
+                  key: LDAP_LOG_LEVEL
+          ports:
+            - containerPort: 389
+              name: ldap
+              protocol: TCP
+            - containerPort: 636
+              name: ldaps
+              protocol: TCP
+          volumeMounts:
+            - name: ldap-data
+              mountPath: /var/lib/ldap
+            - name: ldap-config
+              mountPath: /etc/ldap/slapd.d
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory | quote }}
+              cpu: {{ .Values.resources.requests.cpu | quote }}
+            limits:
+              memory: {{ .Values.resources.limits.memory | quote }}
+              cpu: {{ .Values.resources.limits.cpu | quote }}
+          livenessProbe:
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+  volumeClaimTemplates:
+    - metadata:
+        name: ldap-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.data }}
+    - metadata:
+        name: ldap-config
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.config }}

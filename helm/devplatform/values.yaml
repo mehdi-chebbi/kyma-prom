@@ -1,0 +1,197 @@
+global:
+  domain: devplatform.local
+  storageClass: local-path
+  imagePullPolicy: IfNotPresent
+
+  jwtSecret: "your-super-secret-jwt-key-change-in-production"
+
+  ldap:
+    baseDN: "dc=devplatform,dc=local"
+    bindDN: "cn=admin,dc=devplatform,dc=local"
+    adminPassword: "admin123"
+    configPassword: "config123"
+    organisation: "DevPlatform"
+    domain: "devplatform.local"
+
+  keycloak:
+    url: "http://keycloak.auth-system.svc.cluster.local:8080"
+    realm: "devplatform"
+    adminUser: "admin"
+    adminPassword: "admin_password_change_me"
+    clientSecrets:
+      giteaService: "gitea_service_client_secret_change_me"
+      ldapManager: "ldap_manager_client_secret_change_me"
+      frontendAdmin: "frontend_admin_client_secret_change_me"
+
+  gitea:
+    adminUser: "gitea_admin"
+    adminPassword: "Admin123!"
+    adminEmail: "admin@local.dev"
+    url: "http://gitea.dev-platform.svc.cluster.local:3000"
+
+  istio:
+    enabled: true
+
+# ── Per-subchart overrides ──
+
+auth:
+  enabled: true
+  postgres:
+    storage: 10Gi
+    password: "keycloak_db_password_change_me"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  memcached:
+    replicas: 3
+    memory: 256
+    connections: 1024
+    maxItemSize: "5m"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+  keycloak:
+    replicas: 2
+    image: quay.io/keycloak/keycloak:23.0
+    storage: 5Gi
+    javaOpts: >-
+      -Xms512m
+      -Xmx1024m
+      -XX:MetaspaceSize=96M
+      -XX:MaxMetaspaceSize=256m
+      -Djava.net.preferIPv4Stack=true
+    service:
+      type: LoadBalancer
+      port: 30080
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+  ldapConfigJob:
+    enabled: true
+
+openldap:
+  enabled: true
+  image: osixia/openldap:1.5.0
+  storage:
+    data: 5Gi
+    config: 1Gi
+  service:
+    type: LoadBalancer
+    ldapPort: 30000
+    ldapsPort: 30001
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+ldap-manager:
+  enabled: true
+  image: ldap-manager:latest
+  replicas: 2
+  poolSize: 10
+  startingUID: 10000
+  startingGID: 10000
+  service:
+    type: LoadBalancer
+    httpPort: 30008
+    metricsPort: 30007
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    cpuUtilization: 70
+    memoryUtilization: 80
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+gitea:
+  enabled: true
+  image: gitea/gitea:1.21
+  storage: 20Gi
+  database: sqlite3
+  service:
+    type: LoadBalancer
+    httpPort: 30009
+    sshPort: 30010
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  oauth2Job:
+    enabled: true
+
+gitea-service:
+  enabled: true
+  image: gitea-service:latest
+  replicas: 2
+  service:
+    type: LoadBalancer
+    httpPort: 30011
+    metricsPort: 30013
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    cpuUtilization: 70
+    memoryUtilization: 80
+  controller:
+    enabled: true
+    image: gitea-sync-controller:latest
+    storage: 100Mi
+    reconcileInterval: "5m"
+    groupSyncInterval: "5m"
+    webhookCheckInterval: "2m"
+    userSyncDefaultPassword: "changeme123!"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+codeserver:
+  enabled: true
+  image: codeserver-service:latest
+  replicas: 2
+  instanceNamespace: codeserver-instances
+  pvcSize: 10Gi
+  codeserverImage: "codercom/code-server:latest"
+  codeserverResources:
+    cpuRequest: "500m"
+    cpuLimit: "2"
+    memoryRequest: "1Gi"
+    memoryLimit: "4Gi"
+  timeout: 300
+  service:
+    type: LoadBalancer
+    httpPort: 30012
+    metricsPort: 30014
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

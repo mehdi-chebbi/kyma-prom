@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openldap-config
+  namespace: {{ include "openldap.namespace" . }}
+  labels:
+    {{- include "openldap.labels" . | nindent 4 }}
+data:
+  LDAP_ORGANISATION: {{ .Values.global.ldap.organisation | quote }}
+  LDAP_DOMAIN: {{ .Values.global.ldap.domain | quote }}
+  LDAP_BASE_DN: {{ .Values.global.ldap.baseDN | quote }}
+  LDAP_TLS: "false"
+  LDAP_LOG_LEVEL: "256"

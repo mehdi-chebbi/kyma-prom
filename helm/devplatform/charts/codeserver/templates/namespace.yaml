@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codeserver-instances
+  labels:
+    app: codeserver-instances
+    {{- if .Values.global.istio.enabled }}
+    istio-injection: enabled
+    {{- end }}
+    {{- include "codeserver.labels" . | nindent 4 }}

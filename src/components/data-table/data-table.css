@@ -1,0 +1,119 @@
+.skeleton-table {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.skeleton-row {
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--dark-purple-200) 0%,
+    var(--dark-purple-300) 50%,
+    var(--dark-purple-200) 100%
+  );
+  background-size: 200% 100%;
+  animation: pulse 1.4s infinite;
+}
+
+@keyframes pulse {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.update-btn,
+.delete-btn {
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+.actions{
+  display: flex;
+  justify-content: end;
+  gap: 1rem;
+  align-items: center;
+}
+
+.update-btn {
+  background-color: var(--light-blue-500);
+}
+
+.update-btn:hover {
+  background-color: var(--light-blue-600);
+}
+
+.delete-btn {
+  background-color: var(--light-pink-300);
+}
+
+.delete-btn:hover {
+  background-color: var(--light-pink-400);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table.loading {
+  border-spacing: 0px 0.25rem;
+  border-collapse: separate;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.data-table thead {
+  background-color: var(--dark-purple-500);
+  color: var(--light-purple-1000);
+}
+
+.data-table tbody tr {
+  background-color: var(--bg-black-300);
+  border-bottom: 1px solid var(--dark-purple-500);
+  color: var(--light-purple-1000);
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--bg-black-400);
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-indicator {
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.table-pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.table-pagination button {
+  background: var(--bg-black-300);
+  border: 1px solid var(--bg-black-500);
+  color: var(--light-purple-1000);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.table-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

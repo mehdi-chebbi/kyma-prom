@@ -1,0 +1,19 @@
+{{- if .Values.controller.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-sync-controller
+  namespace: {{ include "gitea-service.namespace" . }}
+  labels:
+    {{- include "gitea-service.labels" . | nindent 4 }}
+    app: gitea-sync-controller
+spec:
+  type: ClusterIP
+  selector:
+    app: gitea-sync-controller
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+{{- end }}

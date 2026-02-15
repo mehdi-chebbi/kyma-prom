@@ -1,0 +1,117 @@
+{{- if .Values.global.istio.enabled }}
+---
+# RequestAuthentication validates JWT tokens from Keycloak
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: keycloak-jwt
+  namespace: istio-system
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  jwtRules:
+    - issuer: "http://keycloak.auth-system.svc.cluster.local:8080/realms/devplatform"
+      jwksUri: "http://keycloak.auth-system.svc.cluster.local:8080/realms/devplatform/protocol/openid-connect/certs"
+      forwardOriginalToken: true
+      outputPayloadToHeader: "x-jwt-payload"
+---
+# Global AuthorizationPolicy - Allow unauthenticated access to login endpoints
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-public-endpoints
+  namespace: istio-system
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  action: ALLOW
+  rules:
+    # Allow access to Keycloak (login, token endpoints)
+    - to:
+        - operation:
+            hosts: ["keycloak.localhost"]
+    # Allow health check endpoints
+    - to:
+        - operation:
+            paths: ["/health", "/ready", "/health/*"]
+    # Allow GraphQL introspection (for development)
+    - to:
+        - operation:
+            paths: ["/graphql"]
+            methods: ["POST"]
+      when:
+        - key: request.headers[content-type]
+          values: ["application/json"]
+---
+# AuthorizationPolicy for dev-platform namespace - Require JWT
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: require-jwt-dev-platform
+  namespace: dev-platform
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  action: ALLOW
+  rules:
+    # Allow requests with valid JWT
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            paths: ["/graphql"]
+            methods: ["POST"]
+---
+# AuthorizationPolicy for specific services - RBAC based on JWT claims
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: gitea-service-rbac
+  namespace: dev-platform
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: gitea-service
+  action: ALLOW
+  rules:
+    # Allow developers to read repositories
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            paths: ["/graphql"]
+            methods: ["POST"]
+      when:
+        - key: request.auth.claims[realm_access.roles]
+          values: ["developer", "admin"]
+---
+# AuthorizationPolicy - Deny access without JWT (except public endpoints)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-without-jwt
+  namespace: dev-platform
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  action: DENY
+  rules:
+    # Deny requests without JWT to /graphql
+    - from:
+        - source:
+            notRequestPrincipals: ["*"]
+      to:
+        - operation:
+            paths: ["/graphql"]
+            methods: ["POST"]
+{{- end }}

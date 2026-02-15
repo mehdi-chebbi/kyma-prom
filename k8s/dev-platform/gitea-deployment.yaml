@@ -1,0 +1,279 @@
+---
+# Gitea uses the same PostgreSQL instance as Keycloak (in auth-system namespace)
+# We just need to create a separate database within the same PostgreSQL instance
+
+# Job to create Gitea database in existing PostgreSQL
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gitea-db-init
+  namespace: dev-platform
+spec:
+  template:
+    metadata:
+      labels:
+        app: gitea-db-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:15-alpine
+          env:
+            - name: PGHOST
+              value: postgres.auth-system.svc.cluster.local
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              value: keycloak
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  namespace: auth-system
+                  key: POSTGRES_PASSWORD
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Creating Gitea database and user..."
+              psql -c "CREATE DATABASE gitea;" || echo "Database gitea already exists"
+              psql -c "CREATE USER gitea WITH PASSWORD 'gitea_password_change_me';" || echo "User gitea already exists"
+              psql -c "GRANT ALL PRIVILEGES ON DATABASE gitea TO gitea;"
+              echo "Gitea database initialized!"
+  backoffLimit: 3
+
+---
+# Gitea Application
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-data-pvc
+  namespace: dev-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitea-db-secret
+  namespace: dev-platform
+type: Opaque
+stringData:
+  DB_HOST: postgres.auth-system.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: gitea
+  DB_USER: gitea
+  DB_PASSWORD: gitea_password_change_me
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-config
+  namespace: dev-platform
+data:
+  app.ini: |
+    APP_NAME = Gitea: Git with a cup of tea
+    RUN_MODE = prod
+    RUN_USER = git
+
+    [server]
+    PROTOCOL = http
+    DOMAIN = gitea.dev-platform.svc.cluster.local
+    ROOT_URL = http://gitea.dev-platform.svc.cluster.local:3000
+    HTTP_PORT = 3000
+    DISABLE_SSH = false
+    SSH_PORT = 22
+    START_SSH_SERVER = false
+    LFS_START_SERVER = true
+    OFFLINE_MODE = false
+
+    [database]
+    DB_TYPE = sqlite3
+    PATH = /data/gitea/gitea.db
+    LOG_SQL = false
+
+    [indexer]
+    ISSUE_INDEXER_TYPE = bleve
+    REPO_INDEXER_ENABLED = true
+
+    [security]
+    INSTALL_LOCK = true
+    SECRET_KEY = change_this_secret_key_to_something_random
+    INTERNAL_TOKEN = change_this_internal_token_to_something_random
+    PASSWORD_HASH_ALGO = pbkdf2
+
+    [service]
+    DISABLE_REGISTRATION = false
+    REQUIRE_SIGNIN_VIEW = false
+    REGISTER_EMAIL_CONFIRM = false
+    ENABLE_NOTIFY_MAIL = false
+    DEFAULT_KEEP_EMAIL_PRIVATE = false
+    DEFAULT_ALLOW_CREATE_ORGANIZATION = true
+    DEFAULT_ENABLE_TIMETRACKING = true
+    NO_REPLY_ADDRESS = noreply.localhost
+
+    [oauth2]
+    ENABLED = true
+    JWT_SIGNING_ALGORITHM = RS256
+
+    [oauth2_client]
+    ENABLE_AUTO_REGISTRATION = true
+    USERNAME = preferred_username
+    EMAIL = email
+    UPDATE_AVATAR = true
+    ACCOUNT_LINKING = auto
+
+    [openid]
+    ENABLE_OPENID_SIGNIN = true
+    ENABLE_OPENID_SIGNUP = true
+    WHITELISTED_URIS = keycloak.auth-system.svc.cluster.local
+
+    [webhook]
+    ALLOWED_HOST_LIST = *
+
+    [mailer]
+    ENABLED = false
+
+    [log]
+    MODE = console
+    LEVEL = Info
+    ROOT_PATH = /data/gitea/log
+
+    [repository]
+    ROOT = /data/git/repositories
+
+    [repository.upload]
+    ENABLED = true
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  namespace: dev-platform
+  labels:
+    app: gitea
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
+    - name: ssh
+      port: 22
+      targetPort: 22
+      protocol: TCP
+  selector:
+    app: gitea
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: dev-platform
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+        version: v1
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: init-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/gitea/conf
+              cp /etc/gitea-config/app.ini /data/gitea/conf/app.ini
+              chmod 664 /data/gitea/conf/app.ini
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/gitea-config
+      containers:
+        - name: gitea
+          image: gitea/gitea:1.21
+          ports:
+            - name: http
+              containerPort: 3000
+            - name: ssh
+              containerPort: 22
+          env:
+            - name: USER_UID
+              value: "1000"
+            - name: USER_GID
+              value: "1000"
+            - name: GITEA_ADMIN_USER
+              value: "gitea_admin"
+            - name: GITEA_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-ldap-secret
+                  key: GITEA_ADMIN_PASSWORD
+            - name: GITEA_ADMIN_EMAIL
+              value: "admin@local.dev"
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    sleep 15 && \
+                    su git -c "gitea admin user create \
+                      --username $GITEA_ADMIN_USER \
+                      --password $GITEA_ADMIN_PASSWORD \
+                      --email $GITEA_ADMIN_EMAIL \
+                      --admin \
+                      --must-change-password=false" || true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gitea-data-pvc
+        - name: config
+          configMap:
+            name: gitea-config

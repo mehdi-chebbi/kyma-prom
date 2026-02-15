@@ -1,0 +1,171 @@
+---
+# Gitea OAuth2/OIDC Configuration for Keycloak Integration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-oauth2-config
+  namespace: dev-platform
+data:
+  # Additional app.ini configuration for OAuth2
+  oauth2.ini: |
+    [oauth2]
+    ENABLED = true
+    ; JWT signing algorithm
+    JWT_SIGNING_ALGORITHM = RS256
+    ; JWT signing key (not used when validating external JWTs)
+    JWT_SECRET =
+
+    [oauth2_client]
+    ; Enable automatic registration when user logs in via OAuth2
+    ENABLE_AUTO_REGISTRATION = true
+    ; OAuth2 username claim mapping
+    USERNAME = preferred_username
+    ; Email claim mapping
+    EMAIL = email
+    ; Update existing user data from OAuth2 provider
+    UPDATE_AVATAR = true
+    ACCOUNT_LINKING = auto
+
+    [openid]
+    ; Enable OpenID Connect signin
+    ENABLE_OPENID_SIGNIN = true
+    ; Enable OpenID Connect signup
+    ENABLE_OPENID_SIGNUP = true
+    ; Whitelisted OpenID Connect providers
+    WHITELISTED_URIS = keycloak.auth-system.svc.cluster.local
+
+    [service]
+    ; Disable internal authentication (use OAuth2 only)
+    DISABLE_REGISTRATION = true
+    ; Require signin to view any page
+    REQUIRE_SIGNIN_VIEW = false
+    ; Enable reverse proxy authentication
+    ENABLE_REVERSE_PROXY_AUTHENTICATION = true
+    ENABLE_REVERSE_PROXY_AUTO_REGISTRATION = true
+    ENABLE_REVERSE_PROXY_EMAIL = true
+    REVERSE_PROXY_AUTHENTICATION_USER = X-Forwarded-User
+    REVERSE_PROXY_AUTHENTICATION_EMAIL = X-Forwarded-Email
+    REVERSE_PROXY_AUTHENTICATION_FULL_NAME = X-Forwarded-Full-Name
+
+---
+# Script to configure Keycloak as OAuth2 provider in Gitea
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-oauth2-setup-script
+  namespace: dev-platform
+data:
+  setup-oauth2.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "Waiting for Gitea to be ready..."
+    until curl -sf http://gitea.dev-platform:3000/api/healthz > /dev/null; do
+      echo "Gitea not ready yet, waiting..."
+      sleep 5
+    done
+
+    echo "Gitea is ready! Configuring OAuth2..."
+
+    # Gitea admin token (should be created manually first or via init container)
+    GITEA_ADMIN_TOKEN="${GITEA_ADMIN_TOKEN}"
+
+    # Check if OAuth2 source already exists
+    OAUTH_EXISTS=$(curl -s -H "Authorization: token ${GITEA_ADMIN_TOKEN}" \
+      http://gitea.dev-platform:3000/api/v1/admin/orgs/org/sources | \
+      jq -r '.[] | select(.name=="Keycloak") | .name' || echo "")
+
+    if [ -z "$OAUTH_EXISTS" ]; then
+      echo "Creating Keycloak OAuth2 authentication source..."
+
+      curl -X POST http://gitea.dev-platform:3000/api/v1/admin/auth/sources \
+        -H "Authorization: token ${GITEA_ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "Keycloak",
+          "type": "oauth2",
+          "config": {
+            "provider": "openidConnect",
+            "client_id": "gitea-service",
+            "client_secret": "'"${GITEA_CLIENT_SECRET}"'",
+            "openid_connect_auto_discovery_url": "http://keycloak.auth-system:8080/realms/devplatform/.well-known/openid-configuration",
+            "icon_url": "https://www.keycloak.org/resources/images/keycloak_icon_512px.svg",
+            "scopes": ["openid", "profile", "email"],
+            "required_claim_name": "",
+            "required_claim_value": "",
+            "group_claim_name": "groups",
+            "admin_group": "admins",
+            "restricted_group": "",
+            "skip_local_2fa": false
+          }
+        }'
+
+      echo "OAuth2 source created successfully!"
+    else
+      echo "OAuth2 source already exists, skipping..."
+    fi
+
+    echo "Configuration complete!"
+
+---
+# Job to setup OAuth2 in Gitea
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gitea-oauth2-setup
+  namespace: dev-platform
+spec:
+  template:
+    metadata:
+      labels:
+        app: gitea-oauth2-setup
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: setup
+          image: curlimages/curl:latest
+          command: ["/bin/sh", "/scripts/setup-oauth2.sh"]
+          env:
+            - name: GITEA_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-admin-secret
+                  key: ADMIN_TOKEN
+            - name: GITEA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-keycloak-client-secret
+                  key: CLIENT_SECRET
+          volumeMounts:
+            - name: setup-script
+              mountPath: /scripts
+      volumes:
+        - name: setup-script
+          configMap:
+            name: gitea-oauth2-setup-script
+            defaultMode: 0755
+  backoffLimit: 5
+
+---
+# Copy of Keycloak client secret in dev-platform namespace
+# (Jobs cannot reference secrets from other namespaces)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitea-keycloak-client-secret
+  namespace: dev-platform
+type: Opaque
+stringData:
+  # This should match the secret in auth-system namespace
+  CLIENT_SECRET: "gitea_service_client_secret_change_me"
+
+---
+# Secret for Gitea admin token (create manually or via init)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitea-admin-secret
+  namespace: dev-platform
+type: Opaque
+stringData:
+  ADMIN_TOKEN: gitea_admin_token_change_me_after_first_login

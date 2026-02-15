@@ -1,0 +1,257 @@
+---
+# ConfigMap for Gitea
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-config
+  namespace: dev-platform
+data:
+  APP_NAME: "Gitea: Dev Platform"
+  RUN_MODE: "prod"
+  DOMAIN: "localhost"
+  SSH_DOMAIN: "localhost"
+  HTTP_PORT: "3000"
+  ROOT_URL: "http://localhost:30009/"
+  DISABLE_SSH: "false"
+  SSH_PORT: "2222"
+  LFS_START_SERVER: "true"
+  OFFLINE_MODE: "false"
+  # Security settings - Enable anonymous access
+  REQUIRE_SIGNIN_VIEW: "false"
+  ENABLE_EXPLORE: "true"
+  DEFAULT_KEEP_EMAIL_PRIVATE: "false"
+  # Service settings - Allow public repos by default
+  DEFAULT_PRIVATE: "false"
+  DISABLE_REGISTRATION: "false"
+  REQUIRE_EXTERNAL_REGISTRATION_CAPTCHA: "false"
+  # Skip setup wizard
+  INSTALL_LOCK: "true"
+
+---
+# Secret for Gitea LDAP credentials and admin
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitea-ldap-secret
+  namespace: dev-platform
+type: Opaque
+stringData:
+  LDAP_BIND_PASSWORD: "admin"  # Change this to match your OpenLDAP admin password
+  GITEA_ADMIN_PASSWORD: "Admin123"  # Admin password for gitea_admin user
+
+---
+# PersistentVolumeClaim for Gitea data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-data
+  namespace: dev-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# Deployment for Gitea
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: dev-platform
+  labels:
+    app: gitea
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      containers:
+      - name: gitea
+        image: gitea/gitea:1.21
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        - name: ssh
+          containerPort: 2222
+          protocol: TCP
+        env:
+        - name: USER_UID
+          value: "1000"
+        - name: USER_GID
+          value: "1000"
+        - name: GITEA__database__DB_TYPE
+          value: "sqlite3"
+        - name: GITEA__database__PATH
+          value: "/data/gitea/gitea.db"
+        - name: GITEA__server__DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: DOMAIN
+        - name: GITEA__server__HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: HTTP_PORT
+        - name: GITEA__server__ROOT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: ROOT_URL
+        - name: GITEA__server__DISABLE_SSH
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: DISABLE_SSH
+        - name: GITEA__server__SSH_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: SSH_PORT
+        # Security settings - Enable anonymous access
+        - name: GITEA__service__REQUIRE_SIGNIN_VIEW
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: REQUIRE_SIGNIN_VIEW
+        - name: GITEA__service__ENABLE_EXPLORE
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: ENABLE_EXPLORE
+        - name: GITEA__service__DEFAULT_KEEP_EMAIL_PRIVATE
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: DEFAULT_KEEP_EMAIL_PRIVATE
+        - name: GITEA__repository__DEFAULT_PRIVATE
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: DEFAULT_PRIVATE
+        - name: GITEA__service__DISABLE_REGISTRATION
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: DISABLE_REGISTRATION
+        # Skip setup wizard
+        - name: GITEA__security__INSTALL_LOCK
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: INSTALL_LOCK
+        # Admin credentials for auto-creation
+        - name: GITEA_ADMIN_USER
+          value: "gitea_admin"
+        - name: GITEA_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: gitea-ldap-secret
+              key: GITEA_ADMIN_PASSWORD
+        - name: GITEA_ADMIN_EMAIL
+          value: "admin@local.dev"
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  sleep 15 && \
+                  su git -c "gitea admin user create \
+                    --username $GITEA_ADMIN_USER \
+                    --password $GITEA_ADMIN_PASSWORD \
+                    --email $GITEA_ADMIN_EMAIL \
+                    --admin \
+                    --must-change-password=false" || true
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: temp
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/healthz
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /api/healthz
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: gitea-data
+      - name: temp
+        emptyDir: {}
+
+---
+# ClusterIP Service for internal cluster communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  namespace: dev-platform
+  labels:
+    app: gitea
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+  - name: ssh
+    port: 2222
+    targetPort: 2222
+    protocol: TCP
+  selector:
+    app: gitea
+
+---
+# LoadBalancer Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-external
+  namespace: dev-platform
+  labels:
+    app: gitea
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 30009
+    targetPort: 3000
+    protocol: TCP
+  - name: ssh
+    port: 30010
+    targetPort: 2222
+    protocol: TCP
+  selector:
+    app: gitea

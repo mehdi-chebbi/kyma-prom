@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codeserver-instances
+  labels:
+    app: codeserver-instances
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-platform
+  labels:
+    istio-injection: enabled

@@ -1,0 +1,288 @@
+---
+# Istio Gateway for Gitea Service
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: gitea-service-gateway
+  namespace: dev-platform
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "gitea-service.localhost"
+    - "gitea-service.local"
+    - "gitea-api.local"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: gitea-service-tls  # TLS secret name
+    hosts:
+    - "gitea-service.localhost"
+    - "gitea-service.local"
+    - "gitea-api.local"
+
+---
+# VirtualService for Gitea Service routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gitea-service-vs
+  namespace: dev-platform
+spec:
+  hosts:
+  - "gitea-service.localhost"
+  - "gitea-service.local"
+  - "gitea-api.local"
+  - "gitea-service.dev-platform.svc.cluster.local"
+  gateways:
+  - gitea-service-gateway
+  - mesh  # Allow internal mesh traffic
+  http:
+  # GraphQL endpoint
+  - name: "graphql-api"
+    match:
+    - uri:
+        prefix: /graphql
+    route:
+    - destination:
+        host: gitea-service.dev-platform.svc.cluster.local
+        port:
+          number: 80
+        subset: v1
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    corsPolicy:
+      allowOrigins:
+      - exact: "http://localhost:5173"
+      - exact: "http://localhost:3000"
+      - prefix: "http://localhost"
+      - regex: ".*\\.local"
+      allowMethods:
+      - POST
+      - GET
+      - OPTIONS
+      - PUT
+      - DELETE
+      allowHeaders:
+      - content-type
+      - authorization
+      - x-request-id
+      - x-b3-traceid
+      - x-b3-spanid
+      - x-b3-parentspanid
+      - x-b3-sampled
+      - x-b3-flags
+      exposeHeaders:
+      - x-custom-header
+      maxAge: "24h"
+      allowCredentials: true
+
+  # Health check endpoint
+  - name: "health-check"
+    match:
+    - uri:
+        exact: /health
+    route:
+    - destination:
+        host: gitea-service.dev-platform.svc.cluster.local
+        port:
+          number: 80
+        subset: v1
+    timeout: 5s
+
+  # Readiness check endpoint
+  - name: "readiness-check"
+    match:
+    - uri:
+        exact: /ready
+    route:
+    - destination:
+        host: gitea-service.dev-platform.svc.cluster.local
+        port:
+          number: 80
+        subset: v1
+    timeout: 5s
+
+  # Metrics endpoint (restricted to mesh only)
+  - name: "metrics"
+    match:
+    - uri:
+        exact: /metrics
+      gateways:
+      - mesh
+    route:
+    - destination:
+        host: gitea-service.dev-platform.svc.cluster.local
+        port:
+          number: 9091
+        subset: v1
+    timeout: 10s
+
+---
+# DestinationRule for traffic policy and mTLS
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: gitea-service-dr
+  namespace: dev-platform
+spec:
+  host: gitea-service.dev-platform.svc.cluster.local
+  trafficPolicy:
+    # Connection pool settings
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 2
+    # Load balancer settings
+    loadBalancer:
+      simple: LEAST_REQUEST
+      localityLbSetting:
+        enabled: true
+    # Outlier detection for circuit breaking
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+    # mTLS settings
+    tls:
+      mode: ISTIO_MUTUAL  # Enforce mutual TLS
+  subsets:
+  - name: v1
+    labels:
+      version: v1.0.0
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 100
+        http:
+          http1MaxPendingRequests: 50
+          http2MaxRequests: 100
+
+---
+# PeerAuthentication for enforcing mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: gitea-service-mtls
+  namespace: dev-platform
+spec:
+  selector:
+    matchLabels:
+      app: gitea-service
+  mtls:
+    mode: STRICT  # Enforce strict mTLS
+
+---
+# RequestAuthentication for JWT validation via Keycloak
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: gitea-service-jwt
+  namespace: dev-platform
+spec:
+  selector:
+    matchLabels:
+      app: gitea-service
+  jwtRules:
+  - issuer: "http://localhost:30080/realms/devplatform"
+    jwksUri: "http://keycloak.auth-system.svc.cluster.local:8080/realms/devplatform/protocol/openid-connect/certs"
+    forwardOriginalToken: true
+
+---
+# AuthorizationPolicy for access control
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: gitea-service-authz
+  namespace: dev-platform
+spec:
+  selector:
+    matchLabels:
+      app: gitea-service
+  action: ALLOW
+  rules:
+  # Allow health checks from anywhere
+  - to:
+    - operation:
+        paths: ["/health", "/ready"]
+        methods: ["GET"]
+
+  # Allow GraphQL from authenticated sources (Keycloak JWT)
+  - to:
+    - operation:
+        paths: ["/graphql"]
+        methods: ["POST", "GET", "OPTIONS"]
+    from:
+    - source:
+        requestPrincipals: ["*"]
+
+  # Allow metrics scraping from Prometheus
+  - to:
+    - operation:
+        paths: ["/metrics"]
+        methods: ["GET"]
+    from:
+    - source:
+        namespaces: ["istio-system", "monitoring"]
+
+---
+# ServiceEntry for external Gitea instance (if external)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-gitea
+  namespace: dev-platform
+spec:
+  hosts:
+  - "gitea.example.com"  # Replace with actual Gitea host
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 80
+    name: http
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# VirtualService for LDAP Manager communication
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ldap-manager-internal-vs
+  namespace: dev-platform
+spec:
+  hosts:
+  - "ldap-manager.dev-platform.svc.cluster.local"
+  gateways:
+  - mesh
+  http:
+  - match:
+    - sourceLabels:
+        app: gitea-service
+    route:
+    - destination:
+        host: ldap-manager.dev-platform.svc.cluster.local
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
