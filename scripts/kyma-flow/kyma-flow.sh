@@ -1,0 +1,268 @@
+#!/bin/bash
+#
+# kyma-flow - CLI for KymaFlow platform metrics
+# Displays business-level metrics from LDAP Manager, Gitea Service, and CodeServer Service
+#
+
+set -e
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+# Service endpoints (using Kubernetes DNS)
+LDAP_MANAGER_URL="${KYMA_FLOW_LDAP_MANAGER:-ldap-manager.dev-platform.svc.cluster.local:9090}"
+GITEA_SERVICE_URL="${KYMA_FLOW_GITEA_SERVICE:-gitea-service.dev-platform.svc.cluster.local:9091}"
+CODESERVER_SERVICE_URL="${KYMA_FLOW_CODESERVER_SERVICE:-codeserver-service.dev-platform.svc.cluster.local:9092}"
+
+# Timeout for HTTP requests (seconds)
+HTTP_TIMEOUT=5
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+# Convert bytes to human-readable format
+bytes_to_human() {
+    local bytes=$1
+    local units=('B' 'KB' 'MB' 'GB' 'TB' 'PB')
+    
+    if [ "$bytes" -eq 0 ]; then
+        echo "0 B"
+        return
+    fi
+    
+    local unit=0
+    local size=$bytes
+    
+    while [ $size -gt 1024 ] && [ $unit -lt ${#units[@]} ]; do
+        size=$((size / 1024))
+        unit=$((unit + 1))
+    done
+    
+    echo "${size} ${units[$unit]}"
+}
+
+# Fetch metric value from a service
+fetch_metric() {
+    local service_url=$1
+    local metric_name=$2
+    
+    local response
+    response=$(curl -s --max-time "$HTTP_TIMEOUT" "${service_url}/metrics" 2>/dev/null || echo "")
+    
+    if [ -z "$response" ]; then
+        echo "ERROR"
+        return 1
+    fi
+    
+    # Extract the metric value
+    # Format: metric_name value timestamp
+    local value
+    value=$(echo "$response" | grep "^${metric_name} " | awk '{print $2}' | head -1)
+    
+    if [ -z "$value" ]; then
+        echo "NOT_FOUND"
+        return 1
+    fi
+    
+    echo "$value"
+    return 0
+}
+
+# Display a metric with icon and label
+display_metric() {
+    local icon=$1
+    local label=$2
+    local value=$3
+    local error=$4
+    
+    if [ "$error" = "true" ]; then
+        echo "${icon} ${label}: ❌ ${value}"
+    else
+        echo "${icon} ${label}: ${value}"
+    fi
+}
+
+# ============================================================================
+# COMMAND IMPLEMENTATIONS
+# ============================================================================
+
+# Show total users from LDAP Manager
+cmd_user() {
+    local value
+    value=$(fetch_metric "$LDAP_MANAGER_URL" "ldap_users_total")
+    
+    if [ "$value" = "ERROR" ]; then
+        display_metric "👥" "Users" "Service unreachable" "true"
+    elif [ "$value" = "NOT_FOUND" ]; then
+        display_metric "👥" "Users" "Metric not found" "true"
+    else
+        display_metric "👥" "Users" "$value"
+    fi
+}
+
+# Show total groups from LDAP Manager
+cmd_group() {
+    local value
+    value=$(fetch_metric "$LDAP_MANAGER_URL" "ldap_groups_total")
+    
+    if [ "$value" = "ERROR" ]; then
+        display_metric "👥" "Groups" "Service unreachable" "true"
+    elif [ "$value" = "NOT_FOUND" ]; then
+        display_metric "👥" "Groups" "Metric not found" "true"
+    else
+        display_metric "👥" "Groups" "$value"
+    fi
+}
+
+# Show total repositories from Gitea Service
+cmd_repo() {
+    local value
+    value=$(fetch_metric "$GITEA_SERVICE_URL" "gitea_repos_total")
+    
+    if [ "$value" = "ERROR" ]; then
+        display_metric "📦" "Repositories" "Service unreachable" "true"
+    elif [ "$value" = "NOT_FOUND" ]; then
+        display_metric "📦" "Repositories" "Metric not found" "true"
+    else
+        display_metric "📦" "Repositories" "$value"
+    fi
+}
+
+# Show total migrated repositories from Gitea Service
+cmd_cloned_repo() {
+    local value
+    value=$(fetch_metric "$GITEA_SERVICE_URL" "gitea_repos_migrated_total")
+    
+    if [ "$value" = "ERROR" ]; then
+        display_metric "🔄" "Migrated Repos" "Service unreachable" "true"
+    elif [ "$value" = "NOT_FOUND" ]; then
+        display_metric "🔄" "Migrated Repos" "Metric not found" "true"
+    else
+        display_metric "🔄" "Migrated Repos" "$value"
+    fi
+}
+
+# Show active workspaces from CodeServer Service
+cmd_active_workspace() {
+    local value
+    value=$(fetch_metric "$CODESERVER_SERVICE_URL" "codeserver_workspaces_active_total")
+    
+    if [ "$value" = "ERROR" ]; then
+        display_metric "💻" "Active Workspaces" "Service unreachable" "true"
+    elif [ "$value" = "NOT_FOUND" ]; then
+        display_metric "💻" "Active Workspaces" "Metric not found" "true"
+    else
+        display_metric "💻" "Active Workspaces" "$value"
+    fi
+}
+
+# Show storage used from CodeServer Service
+cmd_storage() {
+    local value
+    value=$(fetch_metric "$CODESERVER_SERVICE_URL" "codeserver_pvc_total_bytes")
+    
+    if [ "$value" = "ERROR" ]; then
+        display_metric "💾" "Storage Used" "Service unreachable" "true"
+    elif [ "$value" = "NOT_FOUND" ]; then
+        display_metric "💾" "Storage Used" "Metric not found" "true"
+    else
+        # Convert bytes to human-readable format
+        local human
+        human=$(bytes_to_human "$value")
+        display_metric "💾" "Storage Used" "$human"
+    fi
+}
+
+# Show all metrics grouped by service
+cmd_summary() {
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  📋 KYMA FLOW PLATFORM SUMMARY"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    # LDAP Manager metrics
+    echo "🔐 LDAP Manager"
+    cmd_user | sed 's/^/   /'
+    cmd_group | sed 's/^/   /'
+    echo ""
+    
+    # Gitea Service metrics
+    echo "📦 Gitea Service"
+    cmd_repo | sed 's/^/   /'
+    cmd_cloned_repo | sed 's/^/   /'
+    echo ""
+    
+    # CodeServer Service metrics
+    echo "💻 CodeServer Service"
+    cmd_active_workspace | sed 's/^/   /'
+    cmd_storage | sed 's/^/   /'
+    echo ""
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+}
+
+# Show help
+cmd_help() {
+    echo "kyma-flow - CLI for KymaFlow platform metrics"
+    echo ""
+    echo "Usage: kyma-flow <command>"
+    echo ""
+    echo "Available commands:"
+    echo "  user              Show total users"
+    echo "  group             Show total groups"
+    echo "  repo              Show total repositories"
+    echo "  cloned-repo       Show total migrated repositories"
+    echo "  active-workspace  Show active workspaces"
+    echo "  storage           Show total storage used"
+    echo "  summary           Show all metrics grouped by service"
+    echo "  help              Show this help message"
+    echo ""
+}
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+main() {
+    local command=${1:-help}
+    
+    case "$command" in
+        user)
+            cmd_user
+            ;;
+        group)
+            cmd_group
+            ;;
+        repo)
+            cmd_repo
+            ;;
+        cloned-repo)
+            cmd_cloned_repo
+            ;;
+        active-workspace)
+            cmd_active_workspace
+            ;;
+        storage)
+            cmd_storage
+            ;;
+        summary)
+            cmd_summary
+            ;;
+        help|--help|-h)
+            cmd_help
+            ;;
+        *)
+            echo "❌ Unknown command: $command"
+            echo ""
+            cmd_help
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function with all arguments
+main "$@"
