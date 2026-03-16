@@ -23,14 +23,29 @@ kubectl cluster-info >nul 2>&1 || (
 REM Get script directory
 set SCRIPT_DIR=%~dp0
 set CONFIGMAP_FILE=%SCRIPT_DIR%kyma-flow-configmap.yaml
+set SERVICES_FILE=%SCRIPT_DIR%metrics-services.yaml
 
-REM Check if ConfigMap file exists
+REM Check if files exist
 if not exist "%CONFIGMAP_FILE%" (
     echo ERROR: ConfigMap file not found: %CONFIGMAP_FILE%
     exit /b 1
 )
 
-echo [1/3] Applying ConfigMap...
+if not exist "%SERVICES_FILE%" (
+    echo ERROR: Services file not found: %SERVICES_FILE%
+    exit /b 1
+)
+
+echo [1/4] Applying Metrics Services...
+kubectl apply -f "%SERVICES_FILE%"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Failed to apply metrics services
+    exit /b 1
+)
+echo Metrics services applied successfully
+echo.
+
+echo [2/4] Applying ConfigMap...
 kubectl apply -f "%CONFIGMAP_FILE%"
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to apply ConfigMap
@@ -39,7 +54,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo ConfigMap applied successfully
 echo.
 
-echo [2/3] Restarting CodeServer Service...
+echo [3/4] Restarting CodeServer Service...
 kubectl rollout restart deployment/codeserver-service -n dev-platform
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to restart deployment
@@ -48,7 +63,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo Rollout initiated successfully
 echo.
 
-echo [3/3] Waiting for rollout to complete...
+echo [4/4] Waiting for rollout to complete...
 kubectl rollout status deployment/codeserver-service -n dev-platform --timeout=120s
 if %ERRORLEVEL% NEQ 0 (
     echo WARNING: Rollout did not complete within timeout
@@ -64,7 +79,7 @@ echo ============================================
 echo.
 echo To use kyma-flow:
 echo   1. Enter a CodeServer pod:
-echo      kubectl exec -it deployment/codeserver-service -n dev-platform -- bash
+echo      kubectl exec -it deployment/codeserver-service -n dev-platform -- sh
 echo.
 echo   2. Run commands:
 echo      /opt/kyma-flow/kyma-flow user

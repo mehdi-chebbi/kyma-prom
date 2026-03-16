@@ -1,0 +1,59 @@
+---
+# ClusterIP Service for LDAP Manager Metrics (internal access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: ldap-manager-metrics
+  namespace: dev-platform
+  labels:
+    app: ldap-manager
+    component: metrics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: ldap-manager
+
+---
+# ClusterIP Service for Gitea Service Metrics (internal access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-service-metrics
+  namespace: dev-platform
+  labels:
+    app: gitea-service
+    component: metrics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9091
+    targetPort: 9091
+    protocol: TCP
+    name: metrics
+  selector:
+    app: gitea-service
+
+---
+# ClusterIP Service for CodeServer Service Metrics (internal access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeserver-service-metrics
+  namespace: dev-platform
+  labels:
+    app: codeserver-service
+    component: metrics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9092
+    targetPort: 9092
+    protocol: TCP
+    name: metrics
+  selector:
+    app: codeserver-service

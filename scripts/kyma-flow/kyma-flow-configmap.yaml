@@ -8,7 +8,7 @@ metadata:
     component: cli
 data:
   kyma-flow: |
-    #!/bin/bash
+    #!/bin/sh
     #
     # kyma-flow - CLI for KymaFlow platform metrics
     # Displays business-level metrics from LDAP Manager, Gitea Service, and CodeServer Service
@@ -20,10 +20,10 @@ data:
     # CONFIGURATION
     # ============================================================================
 
-    # Service endpoints (using Kubernetes DNS)
-    LDAP_MANAGER_URL="${KYMA_FLOW_LDAP_MANAGER:-ldap-manager.dev-platform.svc.cluster.local:9090}"
-    GITEA_SERVICE_URL="${KYMA_FLOW_GITEA_SERVICE:-gitea-service.dev-platform.svc.cluster.local:9091}"
-    CODESERVER_SERVICE_URL="${KYMA_FLOW_CODESERVER_SERVICE:-codeserver-service.dev-platform.svc.cluster.local:9092}"
+    # Service endpoints (using Kubernetes DNS - ClusterIP metrics services)
+    LDAP_MANAGER_URL="${KYMA_FLOW_LDAP_MANAGER:-ldap-manager-metrics.dev-platform.svc.cluster.local:9090}"
+    GITEA_SERVICE_URL="${KYMA_FLOW_GITEA_SERVICE:-gitea-service-metrics.dev-platform.svc.cluster.local:9091}"
+    CODESERVER_SERVICE_URL="${KYMA_FLOW_CODESERVER_SERVICE:-codeserver-service-metrics.dev-platform.svc.cluster.local:9092}"
 
     # Timeout for HTTP requests (seconds)
     HTTP_TIMEOUT=5
@@ -32,61 +32,61 @@ data:
     # UTILITY FUNCTIONS
     # ============================================================================
 
-    # Convert bytes to human-readable format
+    # Convert bytes to human-readable format (POSIX-compliant)
     bytes_to_human() {
-        local bytes=$1
-        local units=('B' 'KB' 'MB' 'GB' 'TB' 'PB')
-        
+        bytes=$1
+        units="B KB MB GB TB PB"
+
         if [ "$bytes" -eq 0 ]; then
             echo "0 B"
             return
         fi
-        
-        local unit=0
-        local size=$bytes
-        
-        while [ $size -gt 1024 ] && [ $unit -lt ${#units[@]} ]; do
+
+        unit=0
+        size=$bytes
+
+        while [ $size -gt 1024 ] && [ $unit -lt 5 ]; do
             size=$((size / 1024))
             unit=$((unit + 1))
         done
-        
-        echo "${size} ${units[$unit]}"
+
+        # Extract the unit name from the space-separated string
+        unit_name=$(echo "$units" | awk -v n="$unit" '{print $n}')
+        echo "${size} ${unit_name}"
     }
 
-    # Fetch metric value from a service
+    # Fetch metric value from a service (using wget instead of curl)
     fetch_metric() {
-        local service_url=$1
-        local metric_name=$2
-        
-        local response
-        response=$(curl -s --max-time "$HTTP_TIMEOUT" "${service_url}/metrics" 2>/dev/null || echo "")
-        
+        service_url=$1
+        metric_name=$2
+
+        response=$(wget -q -T "$HTTP_TIMEOUT" -O - "${service_url}/metrics" 2>/dev/null || echo "")
+
         if [ -z "$response" ]; then
             echo "ERROR"
             return 1
         fi
-        
+
         # Extract the metric value
         # Format: metric_name value timestamp
-        local value
         value=$(echo "$response" | grep "^${metric_name} " | awk '{print $2}' | head -1)
-        
+
         if [ -z "$value" ]; then
             echo "NOT_FOUND"
             return 1
         fi
-        
+
         echo "$value"
         return 0
     }
 
     # Display a metric with icon and label
     display_metric() {
-        local icon=$1
-        local label=$2
-        local value=$3
-        local error=$4
-        
+        icon=$1
+        label=$2
+        value=$3
+        error=$4
+
         if [ "$error" = "true" ]; then
             echo "${icon} ${label}: ❌ ${value}"
         else
@@ -100,9 +100,8 @@ data:
 
     # Show total users from LDAP Manager
     cmd_user() {
-        local value
         value=$(fetch_metric "$LDAP_MANAGER_URL" "ldap_users_total")
-        
+
         if [ "$value" = "ERROR" ]; then
             display_metric "👥" "Users" "Service unreachable" "true"
         elif [ "$value" = "NOT_FOUND" ]; then
@@ -114,9 +113,8 @@ data:
 
     # Show total groups from LDAP Manager
     cmd_group() {
-        local value
         value=$(fetch_metric "$LDAP_MANAGER_URL" "ldap_groups_total")
-        
+
         if [ "$value" = "ERROR" ]; then
             display_metric "👥" "Groups" "Service unreachable" "true"
         elif [ "$value" = "NOT_FOUND" ]; then
@@ -128,9 +126,8 @@ data:
 
     # Show total repositories from Gitea Service
     cmd_repo() {
-        local value
         value=$(fetch_metric "$GITEA_SERVICE_URL" "gitea_repos_total")
-        
+
         if [ "$value" = "ERROR" ]; then
             display_metric "📦" "Repositories" "Service unreachable" "true"
         elif [ "$value" = "NOT_FOUND" ]; then
@@ -142,9 +139,8 @@ data:
 
     # Show total migrated repositories from Gitea Service
     cmd_cloned_repo() {
-        local value
         value=$(fetch_metric "$GITEA_SERVICE_URL" "gitea_repos_migrated_total")
-        
+
         if [ "$value" = "ERROR" ]; then
             display_metric "🔄" "Migrated Repos" "Service unreachable" "true"
         elif [ "$value" = "NOT_FOUND" ]; then
@@ -156,9 +152,8 @@ data:
 
     # Show active workspaces from CodeServer Service
     cmd_active_workspace() {
-        local value
         value=$(fetch_metric "$CODESERVER_SERVICE_URL" "codeserver_workspaces_active_total")
-        
+
         if [ "$value" = "ERROR" ]; then
             display_metric "💻" "Active Workspaces" "Service unreachable" "true"
         elif [ "$value" = "NOT_FOUND" ]; then
@@ -170,16 +165,14 @@ data:
 
     # Show storage used from CodeServer Service
     cmd_storage() {
-        local value
         value=$(fetch_metric "$CODESERVER_SERVICE_URL" "codeserver_pvc_total_bytes")
-        
+
         if [ "$value" = "ERROR" ]; then
             display_metric "💾" "Storage Used" "Service unreachable" "true"
         elif [ "$value" = "NOT_FOUND" ]; then
             display_metric "💾" "Storage Used" "Metric not found" "true"
         else
             # Convert bytes to human-readable format
-            local human
             human=$(bytes_to_human "$value")
             display_metric "💾" "Storage Used" "$human"
         fi
@@ -192,25 +185,25 @@ data:
         echo "  📋 KYMA FLOW PLATFORM SUMMARY"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        
+
         # LDAP Manager metrics
         echo "🔐 LDAP Manager"
         cmd_user | sed 's/^/   /'
         cmd_group | sed 's/^/   /'
         echo ""
-        
+
         # Gitea Service metrics
         echo "📦 Gitea Service"
         cmd_repo | sed 's/^/   /'
         cmd_cloned_repo | sed 's/^/   /'
         echo ""
-        
+
         # CodeServer Service metrics
         echo "💻 CodeServer Service"
         cmd_active_workspace | sed 's/^/   /'
         cmd_storage | sed 's/^/   /'
         echo ""
-        
+
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
     }
@@ -238,8 +231,8 @@ data:
     # ============================================================================
 
     main() {
-        local command=${1:-help}
-        
+        command=${1:-help}
+
         case "$command" in
             user)
                 cmd_user
