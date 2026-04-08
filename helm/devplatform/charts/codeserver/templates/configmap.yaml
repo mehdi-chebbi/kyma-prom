@@ -27,3 +27,6 @@ data:
   BASE_DOMAIN: {{ .Values.global.domain | quote }}
   USE_HTTPS: "true"
   CORS_ORIGINS: "*"
+  {{- if .Values.dockerhub.username }}
+  DOCKERHUB_USERNAME: {{ .Values.dockerhub.username | quote }}
+  {{- end }}
