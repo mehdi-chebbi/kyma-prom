@@ -144,9 +144,6 @@ codeserver:
   enabled: true
   replicas: 1
   pvcSize: 5Gi
-  dockerhub:
-    username: "mehdino123"
-    password: "azeqsdwxc123"
   service:
     type: LoadBalancer
     httpPort: 30012

@@ -416,9 +416,9 @@ CONTEXT_SUBPATH=$(realpath --relative-to="$WORKSPACE_DIR" "$FULL_CONTEXT" 2>/dev
     echo ".")
 KANIKO_CONTEXT="/workspace/${CONTEXT_SUBPATH}"
 
-# Image name: <dockerhub-user>/<last-folder-name>:latest
+# Image name: harbor.harbor.svc.cluster.local/devplatform/<last-folder-name>:latest
 FOLDER_NAME=$(basename "$FULL_CONTEXT")
-IMAGE_NAME="${DOCKERHUB_USERNAME}/${FOLDER_NAME}:latest"
+IMAGE_NAME="harbor.harbor.svc.cluster.local/devplatform/${FOLDER_NAME}:latest"
 
 # Sanitize user ID for Kubernetes resource names (same logic as Go sanitizeUserID)
 SANITIZED_USER=$(echo "$USER_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[._@]/-/g' | sed 's/^-//;s/-$//')
@@ -474,17 +474,18 @@ JOB_JSON=$(cat <<ENDJOB
             "--dockerfile=${DOCKERFILE_REL}",
             "--context=dir://${KANIKO_CONTEXT}",
             "--destination=${IMAGE_NAME}",
+            "--insecure",
             "--cache=false",
             "--verbosity=info"
           ],
           "volumeMounts": [
             {"name": "workspace", "mountPath": "/workspace"},
-            {"name": "dockerhub-config", "mountPath": "/kaniko/.docker", "readOnly": true}
+            {"name": "harbor-config", "mountPath": "/kaniko/.docker", "readOnly": true}
           ]
         }],
         "volumes": [
           {"name": "workspace", "persistentVolumeClaim": {"claimName": "${PVC_NAME}"}},
-          {"name": "dockerhub-config", "secret": {"secretName": "dockerhub-credentials"}}
+          {"name": "harbor-config", "secret": {"secretName": "harbor-credentials"}}
         ]
       }
     }
@@ -698,7 +699,6 @@ echo "=== Build tools setup completed ==="
                                                 {Name: "workspace", MountPath: "/home/coder/workspace"},
                                                 {Name: "coder-config", MountPath: "/home/coder/.config"},
                                                 {Name: "coder-local", MountPath: "/home/coder/.local"},
-                                                                                {Name: "dockerhub-config", MountPath: "/home/coder/.docker", ReadOnly: true},
                                         },
                                         SecurityContext: &corev1.SecurityContext{
                                                 RunAsUser:  int64Ptr(1000),
@@ -713,7 +713,6 @@ echo "=== Build tools setup completed ==="
                                         Env: []corev1.EnvVar{
                                                 {Name: "REPO_NAME", Value: repoName},
                                                 {Name: "USER_ID", Value: userID},
-                                                {Name: "DOCKERHUB_USERNAME", Value: c.config.DockerHubUsername},
                                                 {Name: "PVC_NAME", Value: pvcName},
                                         },
                                         VolumeMounts: []corev1.VolumeMount{
@@ -763,7 +762,6 @@ echo "=== Build tools setup completed ==="
                                                 // Git credentials
                                                 {Name: "GIT_CONFIG_GLOBAL", Value: "/home/coder/workspace/.userdata/.gitconfig"},
                                                 // Kaniko build tools
-                                                {Name: "DOCKERHUB_USERNAME", Value: c.config.DockerHubUsername},
                                                 {Name: "PVC_NAME", Value: pvcName},
                                                 // Add userdata bin to PATH so 'build' command is found directly
                                                 {Name: "PATH", Value: "/home/coder/workspace/.userdata/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
@@ -845,10 +843,10 @@ echo "=== Build tools setup completed ==="
                                         },
                                 },
                                 {
-                                        Name: "dockerhub-config",
+                                        Name: "harbor-config",
                                         VolumeSource: corev1.VolumeSource{
                                                 Secret: &corev1.SecretVolumeSource{
-                                                        SecretName: "dockerhub-credentials",
+                                                        SecretName: "harbor-credentials",
                                                 },
                                         },
                                 },

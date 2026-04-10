@@ -184,9 +184,6 @@ codeserver:
     memoryRequest: "1Gi"
     memoryLimit: "4Gi"
   timeout: 300
-  dockerhub:
-    username: ""
-    password: ""
   service:
     type: LoadBalancer
     httpPort: 30012

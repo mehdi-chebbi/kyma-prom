@@ -40,9 +40,6 @@ type Config struct {
         KeycloakURL   string `envconfig:"KEYCLOAK_URL" default:"https://keycloak.devplatform.local"`
         KeycloakRealm string `envconfig:"KEYCLOAK_REALM" default:"devplatform"`
 
-        // Docker Hub settings (for kaniko builds inside workspace pods)
-        DockerHubUsername string `envconfig:"DOCKERHUB_USERNAME" default:""`
-
         // Domain settings
         BaseDomain string `envconfig:"BASE_DOMAIN" default:"devplatform.local"`
         UseHTTPS   bool   `envconfig:"USE_HTTPS" default:"true"`

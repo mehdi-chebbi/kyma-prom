@@ -1,4 +1,4 @@
-# RBAC for workspace pods to create Kaniko build Jobs and read Docker Hub secrets
+# RBAC for workspace pods to create Kaniko build Jobs and read Harbor registry secrets
 # Workspace pods use the "workspace-builder" ServiceAccount
 apiVersion: v1
 kind: ServiceAccount
@@ -22,10 +22,10 @@ rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["get", "list", "watch", "create", "delete"]
-  # Allow reading Docker Hub credentials secret
+  # Allow reading Harbor credentials secret
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["dockerhub-credentials"]
+    resourceNames: ["harbor-credentials"]
     verbs: ["get"]
   # Allow reading workspace PVCs (kaniko Jobs mount the user's PVC)
   - apiGroups: [""]

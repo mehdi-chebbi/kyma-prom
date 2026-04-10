@@ -1,0 +1,85 @@
+# harbor-values.yaml
+# Based on official goharbor/harbor-helm values.yaml structure
+# ClusterIP only - internal access via harbor.harbor.svc.cluster.local
+
+expose:
+  type: clusterIP
+  tls:
+    enabled: false
+  clusterIP:
+    name: harbor
+    staticClusterIP: ""
+    ports:
+      httpPort: 80
+      httpsPort: 443
+    annotations: {}
+    labels: {}
+
+# Must match expose.clusterIP.name + namespace + svc.cluster.local
+externalURL: http://harbor.harbor.svc.cluster.local
+
+harborAdminPassword: "Harbor12345"
+
+# Internal TLS between components - disabled
+internalTLS:
+  enabled: false
+
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 20Gi
+    jobservice:
+      jobLog:
+        storageClass: ""
+        accessMode: ReadWriteOnce
+        size: 1Gi
+    database:
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+    redis:
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+    trivy:
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+
+# Disable Istio sidecar injection per component
+# (Harbor helm chart has no global podAnnotations - must set per component)
+core:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+portal:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+jobservice:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+registry:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+trivy:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+database:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+redis:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+
+exporter:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
