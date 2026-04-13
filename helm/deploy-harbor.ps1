@@ -282,6 +282,11 @@ $dockerConfig = '{"auths":{"' + $HARBOR_SVC + '":{"username":"' + $ROBOT_FULL_NA
 foreach ($ns in @($K8S_NAMESPACE, $INSTANCE_NAMESPACE)) {
     Write-Host "[6/7] Creating secret in '$ns' namespace..."
     kubectl create namespace $ns 2>$null
+
+    # Add Helm ownership labels so helm install can adopt pre-created namespaces
+    kubectl label namespace $ns app.kubernetes.io/managed-by=Helm --overwrite
+    kubectl annotate namespace $ns meta.helm.sh/release-name=devplatform meta.helm.sh/release-namespace=default --overwrite
+
     kubectl delete secret $K8S_SECRET_NAME -n $ns --ignore-not-found 2>$null
 
     kubectl create secret generic $K8S_SECRET_NAME `
