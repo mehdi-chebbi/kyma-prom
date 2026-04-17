@@ -1,0 +1,58 @@
+.filter-bar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-black-300);
+  border: 1px solid var(--bg-black-500);
+  border-radius: 0.75rem;
+}
+
+.filter-fields {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.filter-input {
+  width: 260px;
+  background: var(--bg-black-200);
+  border: 1px solid var(--bg-black-500);
+  color: var(--light-pink-1000);
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.5rem;
+  outline: none;
+}
+
+.filter-input::placeholder {
+  color: var(--light-pink-800);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.create-btn {
+  background-color: var(--light-purple-500);
+  color: var(--bg-black-300);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.25s;
+}
+
+.create-btn:hover {
+  background-color: var(--dark-purple-500);
+  color: var(--light-purple-1000);
+}

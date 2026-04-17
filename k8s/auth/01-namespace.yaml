@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth-system
+  labels:
+    name: auth-system
+    istio-injection: enabled

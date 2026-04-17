@@ -1,0 +1,2095 @@
+{
+	"info": {
+		"_postman_id": "devplatform-oauth2-collection",
+		"name": "DevPlatform - OAuth2 Microservices",
+		"description": "Complete API collection for DevPlatform microservices with automatic OAuth2 token management and full workflow tests.\n\n**Quick Start:**\n1. Import this collection\n2. Import the environment file\n3. Select the environment\n4. Run \"Complete Workflow\" folder to test end-to-end integration\n\n**Features:**\n- Automatic token refresh\n- End-to-end workflow tests\n- Variable extraction and chaining\n- Environment-based configuration",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🔄 Complete Workflow Tests",
+			"item": [
+				{
+					"name": "1️⃣ Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Login successful\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.access_token).to.be.a('string');",
+									"    ",
+									"    // Save tokens",
+									"    pm.environment.set(\"access_token\", jsonData.access_token);",
+									"    pm.environment.set(\"refresh_token\", jsonData.refresh_token);",
+									"    ",
+									"    // Calculate expiration",
+									"    var expiresAt = new Date();",
+									"    expiresAt.setSeconds(expiresAt.getSeconds() + jsonData.expires_in);",
+									"    pm.environment.set(\"token_expires_at\", expiresAt.getTime());",
+									"    ",
+									"    console.log(\"✅ Logged in successfully\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{client_secret}}",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "{{username}}",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": ["{{keycloak_url}}"],
+							"path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2️⃣ LDAP - Create Test User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"User created successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.createUser).to.be.an('object');",
+									"    pm.expect(jsonData.data.createUser.uid).to.eql('workflow.test');",
+									"    ",
+									"    // Save user details",
+									"    pm.environment.set(\"test_user_uid\", jsonData.data.createUser.uid);",
+									"    pm.environment.set(\"test_user_mail\", jsonData.data.createUser.mail);",
+									"    console.log(\"✅ Created user: \" + jsonData.data.createUser.uid);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateUser($input: CreateUserInput!) {\n  createUser(input: $input) {\n    uid\n    cn\n    mail\n    department\n    uidNumber\n    gidNumber\n    repositories\n  }\n}",
+								"variables": "{\n  \"input\": {\n    \"uid\": \"workflow.test\",\n    \"cn\": \"Workflow Test User\",\n    \"sn\": \"User\",\n    \"givenName\": \"Workflow\",\n    \"mail\": \"workflow.test@devplatform.local\",\n    \"password\": \"testpass123\",\n    \"department\": \"engineering\",\n    \"repositories\": []\n  }\n}"
+							}
+						},
+						"url": {
+							"raw": "{{ldap_manager_url}}/graphql",
+							"host": ["{{ldap_manager_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3️⃣ LDAP - Create Test Department",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Department created successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.createDepartment).to.be.an('object');",
+									"    pm.expect(jsonData.data.createDepartment.ou).to.eql('workflow-test');",
+									"    ",
+									"    pm.environment.set(\"test_department\", jsonData.data.createDepartment.ou);",
+									"    console.log(\"✅ Created department: \" + jsonData.data.createDepartment.ou);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateDepartment($input: CreateDepartmentInput!) {\n  createDepartment(input: $input) {\n    ou\n    description\n    repositories\n  }\n}",
+								"variables": "{\n  \"input\": {\n    \"ou\": \"workflow-test\",\n    \"description\": \"Workflow Test Department\",\n    \"repositories\": [\"https://github.com/devplatform/test-repo\"]\n  }\n}"
+							}
+						},
+						"url": {
+							"raw": "{{ldap_manager_url}}/graphql",
+							"host": ["{{ldap_manager_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4️⃣ LDAP - Assign Repos to User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Repositories assigned to user\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.assignRepoToUser.repositories).to.be.an('array');",
+									"    pm.expect(jsonData.data.assignRepoToUser.repositories.length).to.be.above(0);",
+									"    console.log(\"✅ Assigned repos to user: \" + jsonData.data.assignRepoToUser.repositories.length);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation AssignRepoToUser($uid: String!, $repositories: [String!]!) {\n  assignRepoToUser(uid: $uid, repositories: $repositories) {\n    uid\n    repositories\n  }\n}",
+								"variables": "{\n  \"uid\": \"workflow.test\",\n  \"repositories\": [\n    \"https://github.com/devplatform/workflow-repo-1\",\n    \"https://github.com/devplatform/workflow-repo-2\"\n  ]\n}"
+							}
+						},
+						"url": {
+							"raw": "{{ldap_manager_url}}/graphql",
+							"host": ["{{ldap_manager_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "5️⃣ LDAP - Verify User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"User exists with correct data\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.user.uid).to.eql('workflow.test');",
+									"    pm.expect(jsonData.data.user.repositories).to.be.an('array');",
+									"    pm.expect(jsonData.data.user.repositories.length).to.eql(2);",
+									"    console.log(\"✅ User verified with \" + jsonData.data.user.repositories.length + \" repos\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetUser($uid: String!) {\n  user(uid: $uid) {\n    uid\n    cn\n    mail\n    department\n    repositories\n  }\n}",
+								"variables": "{\n  \"uid\": \"workflow.test\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{ldap_manager_url}}/graphql",
+							"host": ["{{ldap_manager_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "6️⃣ Gitea - Create Repository",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Repository created successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.createRepository).to.be.an('object');",
+									"    pm.expect(jsonData.data.createRepository.name).to.eql('workflow-test-repo');",
+									"    ",
+									"    // Save repo details",
+									"    pm.environment.set(\"test_repo_name\", jsonData.data.createRepository.name);",
+									"    pm.environment.set(\"test_repo_owner\", jsonData.data.createRepository.owner.login);",
+									"    console.log(\"✅ Created repository: \" + jsonData.data.createRepository.fullName);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateRepository($name: String!, $description: String, $private: Boolean, $autoInit: Boolean) {\n  createRepository(name: $name, description: $description, private: $private, autoInit: $autoInit) {\n    id\n    name\n    fullName\n    description\n    owner {\n      login\n    }\n    htmlUrl\n    private\n  }\n}",
+								"variables": "{\n  \"name\": \"workflow-test-repo\",\n  \"description\": \"Repository created by workflow test\",\n  \"private\": false,\n  \"autoInit\": true\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "7️⃣ Gitea - Create Issue",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Issue created successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.createIssue).to.be.an('object');",
+									"    pm.expect(jsonData.data.createIssue.title).to.include('Workflow Test');",
+									"    ",
+									"    pm.environment.set(\"test_issue_number\", jsonData.data.createIssue.number);",
+									"    console.log(\"✅ Created issue #\" + jsonData.data.createIssue.number);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateIssue($repo: String!, $owner: String, $title: String!, $body: String) {\n  createIssue(repo: $repo, owner: $owner, title: $title, body: $body) {\n    id\n    number\n    title\n    body\n    state\n    htmlUrl\n  }\n}",
+								"variables": "{\n  \"repo\": \"workflow-test-repo\",\n  \"title\": \"Workflow Test Issue\",\n  \"body\": \"This issue was created as part of the complete workflow test to verify end-to-end integration between LDAP Manager and Gitea Service.\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "8️⃣ Gitea - Create Team",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Team created successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.createTeam).to.be.an('object');",
+									"    pm.expect(jsonData.data.createTeam.name).to.eql('workflow-test-team');",
+									"    ",
+									"    pm.environment.set(\"test_team_id\", jsonData.data.createTeam.id);",
+									"    console.log(\"✅ Created team: \" + jsonData.data.createTeam.name + \" (ID: \" + jsonData.data.createTeam.id + \")\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation CreateTeam($orgName: String!, $name: String!, $description: String, $permission: String!) {\n  createTeam(orgName: $orgName, name: $name, description: $description, permission: $permission) {\n    id\n    name\n    description\n    permission\n  }\n}",
+								"variables": "{\n  \"orgName\": \"devplatform\",\n  \"name\": \"workflow-test-team\",\n  \"description\": \"Team created by workflow test\",\n  \"permission\": \"write\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "9️⃣ Gitea - Add User to Team",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"User added to team successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.addTeamMember).to.be.an('object');",
+									"    pm.expect(jsonData.data.addTeamMember.members).to.be.an('array');",
+									"    console.log(\"✅ Added user to team, total members: \" + jsonData.data.addTeamMember.members.length);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation AddTeamMember($teamId: Int!, $username: String!) {\n  addTeamMember(teamId: $teamId, username: $username) {\n    id\n    name\n    members {\n      login\n      fullName\n    }\n  }\n}",
+								"variables": "{\n  \"teamId\": {{test_team_id}},\n  \"username\": \"workflow.test\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "🔟 Gitea - Add Repo to Team",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Repository added to team\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.addTeamRepository).to.be.an('object');",
+									"    pm.expect(jsonData.data.addTeamRepository.repositories).to.be.an('array');",
+									"    console.log(\"✅ Added repo to team, total repos: \" + jsonData.data.addTeamRepository.repositories.length);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation AddTeamRepository($teamId: Int!, $owner: String!, $repo: String!) {\n  addTeamRepository(teamId: $teamId, owner: $owner, repo: $repo) {\n    id\n    name\n    repositories {\n      name\n      owner {\n        login\n      }\n    }\n  }\n}",
+								"variables": "{\n  \"teamId\": {{test_team_id}},\n  \"owner\": \"{{test_repo_owner}}\",\n  \"repo\": \"{{test_repo_name}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "1️⃣1️⃣ Verify Full Team Details",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Team has correct members and repositories\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.getTeam).to.be.an('object');",
+									"    pm.expect(jsonData.data.getTeam.members).to.be.an('array');",
+									"    pm.expect(jsonData.data.getTeam.repositories).to.be.an('array');",
+									"    ",
+									"    console.log(\"✅ Team verified:\");",
+									"    console.log(\"   - Members: \" + jsonData.data.getTeam.members.length);",
+									"    console.log(\"   - Repositories: \" + jsonData.data.getTeam.repositories.length);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetTeam($teamId: Int!) {\n  getTeam(teamId: $teamId) {\n    id\n    name\n    description\n    permission\n    members {\n      login\n      fullName\n      email\n    }\n    repositories {\n      name\n      fullName\n      owner {\n        login\n      }\n    }\n  }\n}",
+								"variables": "{\n  \"teamId\": {{test_team_id}}\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "🧹 Cleanup - Delete User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"User deleted\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    console.log(\"✅ Cleanup: User deleted\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation DeleteUser($uid: String!) {\n  deleteUser(uid: $uid)\n}",
+								"variables": "{\n  \"uid\": \"workflow.test\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{ldap_manager_url}}/graphql",
+							"host": ["{{ldap_manager_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "🧹 Cleanup - Delete Department",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Department deleted\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    console.log(\"✅ Cleanup: Department deleted\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation DeleteDepartment($ou: String!) {\n  deleteDepartment(ou: $ou)\n}",
+								"variables": "{\n  \"ou\": \"workflow-test\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{ldap_manager_url}}/graphql",
+							"host": ["{{ldap_manager_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "🧹 Cleanup - Delete Repository",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Repository deleted\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    console.log(\"✅ Cleanup: Repository deleted\");",
+									"    console.log(\"\");",
+									"    console.log(\"🎉 WORKFLOW COMPLETE!\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation DeleteRepository($owner: String!, $name: String!) {\n  deleteRepository(owner: $owner, name: $name)\n}",
+								"variables": "{\n  \"owner\": \"{{test_repo_owner}}\",\n  \"name\": \"{{test_repo_name}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{gitea_service_url}}/graphql",
+							"host": ["{{gitea_service_url}}"],
+							"path": ["graphql"]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Complete end-to-end workflow testing both LDAP Manager and Gitea Service integration.\n\n**Workflow Steps:**\n1. Login to get OAuth2 token\n2. Create test user in LDAP\n3. Create test department in LDAP\n4. Assign repositories to user\n5. Verify user data in LDAP\n6. Create repository in Gitea\n7. Create issue in repository\n8. Create team in Gitea\n9. Add user to team\n10. Add repository to team\n11. Verify complete team setup\n12-14. Cleanup all test data\n\n**How to Run:**\n- Select this folder\n- Click \"Run\" button\n- Watch the automated tests execute\n- Check console for detailed logs"
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login (Get Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save tokens to environment",
+									"var jsonData = pm.response.json();",
+									"",
+									"if (jsonData.access_token) {",
+									"    pm.environment.set(\"access_token\", jsonData.access_token);",
+									"    pm.environment.set(\"refresh_token\", jsonData.refresh_token);",
+									"    pm.environment.set(\"token_expires_in\", jsonData.expires_in);",
+									"    ",
+									"    // Calculate expiration time",
+									"    var expiresAt = new Date();",
+									"    expiresAt.setSeconds(expiresAt.getSeconds() + jsonData.expires_in);",
+									"    pm.environment.set(\"token_expires_at\", expiresAt.getTime());",
+									"    ",
+									"    console.log(\"✅ Token saved successfully\");",
+									"    console.log(\"Token expires in: \" + jsonData.expires_in + \" seconds\");",
+									"} else {",
+									"    console.log(\"❌ Failed to get token\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{client_secret}}",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "{{username}}",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": [
+								"{{keycloak_url}}"
+							],
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"token"
+							]
+						},
+						"description": "Login with username/password to get OAuth2 access token.\n\nThe token is automatically saved to environment variables."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save new tokens to environment",
+									"var jsonData = pm.response.json();",
+									"",
+									"if (jsonData.access_token) {",
+									"    pm.environment.set(\"access_token\", jsonData.access_token);",
+									"    pm.environment.set(\"refresh_token\", jsonData.refresh_token);",
+									"    pm.environment.set(\"token_expires_in\", jsonData.expires_in);",
+									"    ",
+									"    var expiresAt = new Date();",
+									"    expiresAt.setSeconds(expiresAt.getSeconds() + jsonData.expires_in);",
+									"    pm.environment.set(\"token_expires_at\", expiresAt.getTime());",
+									"    ",
+									"    console.log(\"✅ Token refreshed successfully\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "refresh_token",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{client_secret}}",
+									"type": "text"
+								},
+								{
+									"key": "refresh_token",
+									"value": "{{refresh_token}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": [
+								"{{keycloak_url}}"
+							],
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"token"
+							]
+						},
+						"description": "Refresh expired access token using refresh token."
+					},
+					"response": []
+				},
+				{
+					"name": "Get OpenID Configuration",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{keycloak_url}}/realms/{{realm}}/.well-known/openid-configuration",
+							"host": [
+								"{{keycloak_url}}"
+							],
+							"path": [
+								"realms",
+								"{{realm}}",
+								".well-known",
+								"openid-configuration"
+							]
+						},
+						"description": "Get OpenID Connect discovery document with all endpoints."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{client_secret}}",
+									"type": "text"
+								},
+								{
+									"key": "refresh_token",
+									"value": "{{refresh_token}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/logout",
+							"host": [
+								"{{keycloak_url}}"
+							],
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"logout"
+							]
+						},
+						"description": "Logout and invalidate tokens."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for OAuth2 token management."
+		},
+		{
+			"name": "LDAP Manager Service",
+			"item": [
+				{
+					"name": "Users",
+					"item": [
+						{
+							"name": "List All Users",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query {\n  usersAll {\n    uid\n    cn\n    mail\n    department\n    uidNumber\n    gidNumber\n    repositories\n  }\n}",
+										"variables": ""
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								},
+								"description": "Get all users from LDAP (no pagination)."
+							},
+							"response": []
+						},
+						{
+							"name": "Get User by UID",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query GetUser($uid: String!) {\n  user(uid: $uid) {\n    uid\n    cn\n    sn\n    givenName\n    mail\n    department\n    uidNumber\n    gidNumber\n    homeDirectory\n    repositories\n  }\n}",
+										"variables": "{\n  \"uid\": \"john.doe\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation CreateUser($input: CreateUserInput!) {\n  createUser(input: $input) {\n    uid\n    cn\n    mail\n    department\n    uidNumber\n    gidNumber\n  }\n}",
+										"variables": "{\n  \"input\": {\n    \"uid\": \"test.user\",\n    \"cn\": \"Test User\",\n    \"sn\": \"User\",\n    \"givenName\": \"Test\",\n    \"mail\": \"test.user@devplatform.local\",\n    \"password\": \"testpassword123\",\n    \"department\": \"engineering\",\n    \"repositories\": [\"https://github.com/org/repo1\"]\n  }\n}"
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    uid\n    cn\n    mail\n    department\n  }\n}",
+										"variables": "{\n  \"input\": {\n    \"uid\": \"test.user\",\n    \"mail\": \"newemail@devplatform.local\",\n    \"department\": \"devops\"\n  }\n}"
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation DeleteUser($uid: String!) {\n  deleteUser(uid: $uid)\n}",
+										"variables": "{\n  \"uid\": \"test.user\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Departments",
+					"item": [
+						{
+							"name": "List All Departments",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query {\n  departmentsAll {\n    ou\n    description\n    manager\n    repositories\n  }\n}",
+										"variables": ""
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Department",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query GetDepartment($ou: String!) {\n  department(ou: $ou) {\n    ou\n    description\n    manager\n    repositories\n  }\n}",
+										"variables": "{\n  \"ou\": \"engineering\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Department",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation CreateDepartment($input: CreateDepartmentInput!) {\n  createDepartment(input: $input) {\n    ou\n    description\n    manager\n    repositories\n  }\n}",
+										"variables": "{\n  \"input\": {\n    \"ou\": \"qa\",\n    \"description\": \"Quality Assurance Department\",\n    \"manager\": \"uid=john.doe,ou=users,dc=devplatform,dc=local\",\n    \"repositories\": [\"https://github.com/org/qa-automation\"]\n  }\n}"
+									}
+								},
+								"url": {
+									"raw": "{{ldap_manager_url}}/graphql",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Health",
+					"item": [
+						{
+							"name": "Health Check",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{ldap_manager_url}}/health",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"health"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Readiness Check",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{ldap_manager_url}}/ready",
+									"host": [
+										"{{ldap_manager_url}}"
+									],
+									"path": [
+										"ready"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"description": "LDAP Manager Service - User, department, and group management.",
+			"auth": {
+				"type": "bearer",
+				"bearer": [
+					{
+						"key": "token",
+						"value": "{{access_token}}",
+						"type": "string"
+					}
+				]
+			}
+		},
+		{
+			"name": "Gitea Service",
+			"item": [
+				{
+					"name": "User Sync",
+					"item": [
+						{
+							"name": "Sync All LDAP Users to Gitea",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation SyncAllLDAPUsers($defaultPassword: String!) {\n  syncAllLDAPUsers(defaultPassword: $defaultPassword) {\n    id\n    login\n    fullName\n    email\n    isAdmin\n    created\n  }\n}",
+										"variables": "{\n  \"defaultPassword\": \"changeme123\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								},
+								"description": "Sync all LDAP users to Gitea. Creates users in Gitea that exist in LDAP but not in Gitea."
+							},
+							"response": []
+						},
+						{
+							"name": "Sync Single LDAP User to Gitea",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation SyncLDAPUser($uid: String!, $defaultPassword: String!) {\n  syncLDAPUser(uid: $uid, defaultPassword: $defaultPassword) {\n    id\n    login\n    fullName\n    email\n    isAdmin\n    created\n  }\n}",
+										"variables": "{\n  \"uid\": \"john.doe\",\n  \"defaultPassword\": \"changeme123\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								},
+								"description": "Sync a single LDAP user to Gitea by UID."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Gitea User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query GetGiteaUser($username: String!) {\n  giteaUser(username: $username) {\n    id\n    login\n    fullName\n    email\n    avatarUrl\n    isAdmin\n    created\n  }\n}",
+										"variables": "{\n  \"username\": \"john.doe\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								},
+								"description": "Get a Gitea user by username."
+							},
+							"response": []
+						},
+						{
+							"name": "Search Gitea Users",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query SearchGiteaUsers($query: String!, $limit: Int!) {\n  searchGiteaUsers(query: $query, limit: $limit) {\n    id\n    login\n    fullName\n    email\n    isAdmin\n  }\n}",
+										"variables": "{\n  \"query\": \"john\",\n  \"limit\": 10\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								},
+								"description": "Search for Gitea users by query string."
+							},
+							"response": []
+						}
+					],
+					"description": "User synchronization between LDAP and Gitea."
+				},
+				{
+					"name": "Repositories",
+					"item": [
+						{
+							"name": "List Repositories",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query {\n  listRepositories {\n    repositories {\n      id\n      name\n      description\n      owner {\n        login\n        email\n      }\n      htmlUrl\n      private\n      createdAt\n      updatedAt\n    }\n    totalCount\n  }\n}",
+										"variables": ""
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Repository",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query GetRepository($owner: String!, $name: String!) {\n  getRepository(owner: $owner, name: $name) {\n    id\n    name\n    description\n    owner {\n      login\n      email\n    }\n    htmlUrl\n    private\n    createdAt\n    updatedAt\n  }\n}",
+										"variables": "{\n  \"owner\": \"john.doe\",\n  \"name\": \"test-repo\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Repository",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation CreateRepository($name: String!, $description: String, $private: Boolean, $autoInit: Boolean) {\n  createRepository(name: $name, description: $description, private: $private, autoInit: $autoInit) {\n    id\n    name\n    description\n    htmlUrl\n    private\n  }\n}",
+										"variables": "{\n  \"name\": \"my-new-repo\",\n  \"description\": \"Test repository created via API\",\n  \"private\": false,\n  \"autoInit\": true\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Issues",
+					"item": [
+						{
+							"name": "List Issues",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query ListIssues($owner: String!, $repo: String!) {\n  listIssues(owner: $owner, repo: $repo, state: \"open\") {\n    id\n    number\n    title\n    body\n    state\n    createdAt\n    updatedAt\n    user {\n      login\n    }\n  }\n}",
+										"variables": "{\n  \"owner\": \"john.doe\",\n  \"repo\": \"test-repo\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Issue",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation CreateIssue($owner: String, $repo: String!, $title: String!, $body: String) {\n  createIssue(owner: $owner, repo: $repo, title: $title, body: $body) {\n    id\n    number\n    title\n    body\n    state\n    htmlUrl\n  }\n}",
+										"variables": "{\n  \"owner\": \"john.doe\",\n  \"repo\": \"test-repo\",\n  \"title\": \"Test Issue from API\",\n  \"body\": \"This is a test issue created via GraphQL\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Teams",
+					"item": [
+						{
+							"name": "List Teams",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query ListTeams($orgName: String!, $page: Int, $limit: Int) {\n  listTeams(orgName: $orgName, page: $page, limit: $limit) {\n    id\n    name\n    description\n    permission\n  }\n}",
+										"variables": "{\n  \"orgName\": \"devplatform\",\n  \"page\": 1,\n  \"limit\": 50\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Team",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query GetTeam($teamId: Int!) {\n  getTeam(teamId: $teamId) {\n    id\n    name\n    description\n    permission\n    members {\n      id\n      login\n      fullName\n      email\n    }\n    repositories {\n      id\n      name\n      owner {\n        login\n      }\n    }\n  }\n}",
+										"variables": "{\n  \"teamId\": 1\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Team",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation CreateTeam($orgName: String!, $name: String!, $description: String, $permission: String!) {\n  createTeam(orgName: $orgName, name: $name, description: $description, permission: $permission) {\n    id\n    name\n    description\n    permission\n  }\n}",
+										"variables": "{\n  \"orgName\": \"devplatform\",\n  \"name\": \"mobile-team\",\n  \"description\": \"Mobile development team\",\n  \"permission\": \"write\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Add Team Member",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation AddTeamMember($teamId: Int!, $username: String!) {\n  addTeamMember(teamId: $teamId, username: $username) {\n    id\n    name\n    members {\n      login\n      fullName\n    }\n  }\n}",
+										"variables": "{\n  \"teamId\": 1,\n  \"username\": \"john.doe\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Add Team Repository",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation AddTeamRepository($teamId: Int!, $owner: String!, $repo: String!) {\n  addTeamRepository(teamId: $teamId, owner: $owner, repo: $repo) {\n    id\n    name\n    repositories {\n      name\n      owner {\n        login\n      }\n    }\n  }\n}",
+										"variables": "{\n  \"teamId\": 1,\n  \"owner\": \"devplatform\",\n  \"repo\": \"mobile-ios\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sync LDAP Group to Team",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation SyncGroupToTeam($groupCn: String!, $orgName: String!, $teamName: String, $permission: String!) {\n  syncGroupToTeam(groupCn: $groupCn, orgName: $orgName, teamName: $teamName, permission: $permission) {\n    team {\n      id\n      name\n      description\n      permission\n    }\n    membersAdded\n    membersFailed\n    repositoriesAdded\n    repositoriesFailed\n    errors\n  }\n}",
+										"variables": "{\n  \"groupCn\": \"mobile-devs\",\n  \"orgName\": \"devplatform\",\n  \"teamName\": \"mobile-team\",\n  \"permission\": \"write\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{gitea_service_url}}/graphql",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"graphql"
+									]
+								},
+								"description": "Synchronize an LDAP group to a Gitea team. This will:\n1. Create or find the team in Gitea\n2. Add all LDAP group members to the team\n3. Assign all repositories from LDAP group to the team\n4. Return sync statistics"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Health",
+					"item": [
+						{
+							"name": "Health Check",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{gitea_service_url}}/health",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"health"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Readiness Check",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{gitea_service_url}}/ready",
+									"host": [
+										"{{gitea_service_url}}"
+									],
+									"path": [
+										"ready"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"description": "Gitea Service - Repository, issue, and pull request management.",
+			"auth": {
+				"type": "bearer",
+				"bearer": [
+					{
+						"key": "token",
+						"value": "{{access_token}}",
+						"type": "string"
+					}
+				]
+			}
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-refresh token if expired",
+					"const tokenExpiresAt = pm.environment.get('token_expires_at');",
+					"const now = new Date().getTime();",
+					"",
+					"// Check if token exists and is expired (with 30 second buffer)",
+					"if (tokenExpiresAt && now > (tokenExpiresAt - 30000)) {",
+					"    console.log('⚠️ Token expired or expiring soon, attempting refresh...');",
+					"    ",
+					"    const refreshToken = pm.environment.get('refresh_token');",
+					"    if (!refreshToken) {",
+					"        console.log('❌ No refresh token available. Please login again.');",
+					"        return;",
+					"    }",
+					"    ",
+					"    // This is a placeholder - Postman doesn't support async pre-request scripts",
+					"    // In practice, run the \"Refresh Token\" request manually when needed",
+					"    console.log('💡 Please run \"Auth / Refresh Token\" request');",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

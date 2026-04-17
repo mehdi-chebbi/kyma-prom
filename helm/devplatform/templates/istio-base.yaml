@@ -1,0 +1,68 @@
+{{- if .Values.global.istio.enabled }}
+---
+# Source: base/templates/reader-serviceaccount.yaml
+# This singleton service account aggregates reader permissions for the revisions in a given cluster
+# ATM this is a singleton per cluster with Istio installed, and is not revisioned. It maybe should be,
+# as otherwise compromising the token for this SA would give you access to *every* installed revision.
+# Should be used for remote secret creation.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-reader-service-account
+  namespace: istio-system
+  labels:
+    app: istio-reader
+    release: istio-base
+    app.kubernetes.io/name: "istio-reader"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-base"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.28.2"
+    helm.sh/chart: base-1.28.2
+---
+# Source: base/templates/zzz_profile.yaml
+#  Flatten globals, if defined on a per-chart basis
+---
+# Source: base/templates/defaultrevision-validatingwebhookconfiguration.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-default-validator
+  labels:
+    app: istiod
+    release: istio-base
+    istio: istiod
+    istio.io/rev: "default"
+    app.kubernetes.io/name: "istiod"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-base"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.28.2"
+    helm.sh/chart: base-1.28.2
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+          - telemetry.istio.io
+          - extensions.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+{{- end }}

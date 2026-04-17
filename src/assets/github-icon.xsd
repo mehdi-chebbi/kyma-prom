@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="svg">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="path">
+          <xs:complexType>
+            <xs:attribute name="d" use="required" />
+            <xs:attribute name="fill" use="required" />
+            <xs:attribute name="fillRule" use="required" />
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="aria-label" use="required" />
+      <xs:attribute name="height" type="xs:integer" use="required" />
+      <xs:attribute name="viewBox" use="required" />
+      <xs:attribute name="width" type="xs:integer" use="required" />
+      <xs:attribute name="className" use="required" />
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

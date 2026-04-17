@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openldap-init
+  namespace: {{ include "openldap.namespace" . }}
+  labels:
+    {{- include "openldap.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: openldap-init
+      {{- if .Values.global.istio.enabled }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+      {{- end }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: ldap-init
+          image: {{ .Values.initImage | default "ldap-init:latest" }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: LDAP_URL
+              value: "ldap://openldap1.dev-platform.svc.cluster.local:389"
+            - name: LDAP_BASE_DN
+              value: {{ .Values.global.ldap.baseDN | quote }}
+            - name: LDAP_BIND_DN
+              value: {{ .Values.global.ldap.bindDN | quote }}
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-secret
+                  key: LDAP_ADMIN_PASSWORD
+            - name: LDAP_CONFIG_DN
+              value: "cn=admin,cn=config"
+            - name: LDAP_CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-secret
+                  key: LDAP_CONFIG_PASSWORD
+  backoffLimit: 5

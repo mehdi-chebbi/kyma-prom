@@ -1,0 +1,197 @@
+---
+# ConfigMap with Keycloak LDAP configuration script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-ldap-config-script
+  namespace: auth-system
+data:
+  configure-ldap.sh: |
+    #!/bin/bash
+    set -e
+
+    KCADM="/opt/keycloak/bin/kcadm.sh"
+    REALM="devplatform"
+
+    echo "Waiting for Keycloak to be ready..."
+    MAX_RETRIES=30
+    RETRY=0
+    until $KCADM config credentials --server http://keycloak.auth-system:8080 --realm master --user $KEYCLOAK_ADMIN --password $KEYCLOAK_ADMIN_PASSWORD 2>/dev/null; do
+      RETRY=$((RETRY+1))
+      if [ $RETRY -ge $MAX_RETRIES ]; then
+        echo "Keycloak not ready after $MAX_RETRIES attempts, giving up"
+        exit 1
+      fi
+      echo "Keycloak not ready yet (attempt $RETRY/$MAX_RETRIES), waiting..."
+      sleep 10
+    done
+
+    echo "Keycloak is ready! Authenticated successfully."
+
+    # --- REALM ---
+    echo "Configuring realm: $REALM"
+    if $KCADM get realms/$REALM > /dev/null 2>&1; then
+      echo "Realm exists, updating..."
+      $KCADM update realms/$REALM \
+        -s enabled=true \
+        -s displayName="Development Platform" \
+        -s loginWithEmailAllowed=true \
+        -s registrationAllowed=false
+    else
+      echo "Creating realm..."
+      $KCADM create realms \
+        -s realm=$REALM \
+        -s enabled=true \
+        -s displayName="Development Platform" \
+        -s loginWithEmailAllowed=true \
+        -s registrationAllowed=false
+    fi
+
+    # --- LDAP FEDERATION ---
+    echo "Configuring LDAP User Federation..."
+    LDAP_ID=$($KCADM get components -r $REALM --query name=openldap-federation --fields id --format csv 2>/dev/null | tail -1 | tr -d '"')
+
+    LDAP_CONFIG=(
+      -s name="openldap-federation"
+      -s providerId=ldap
+      -s providerType=org.keycloak.storage.UserStorageProvider
+      -s 'config.priority=["0"]'
+      -s 'config.editMode=["READ_ONLY"]'
+      -s 'config.syncRegistrations=["false"]'
+      -s 'config.vendor=["other"]'
+      -s 'config.usernameLDAPAttribute=["uid"]'
+      -s 'config.rdnLDAPAttribute=["uid"]'
+      -s 'config.uuidLDAPAttribute=["entryUUID"]'
+      -s 'config.userObjectClasses=["inetOrgPerson, organizationalPerson"]'
+      -s "config.connectionUrl=[\"ldap://openldap.dev-platform.svc.cluster.local:389\"]"
+      -s "config.usersDn=[\"ou=users,dc=devplatform,dc=local\"]"
+      -s 'config.authType=["simple"]'
+      -s "config.bindDn=[\"cn=admin,dc=devplatform,dc=local\"]"
+      -s "config.bindCredential=[\"${LDAP_BIND_PASSWORD}\"]"
+      -s 'config.searchScope=["1"]'
+      -s 'config.pagination=["true"]'
+      -s 'config.batchSizeForSync=["100"]'
+      -s 'config.fullSyncPeriod=["3600"]'
+      -s 'config.changedSyncPeriod=["300"]'
+    )
+
+    if [ -n "$LDAP_ID" ]; then
+      echo "LDAP federation exists ($LDAP_ID), updating..."
+      $KCADM update components/$LDAP_ID -r $REALM "${LDAP_CONFIG[@]}"
+    else
+      echo "Creating LDAP federation..."
+      $KCADM create components -r $REALM "${LDAP_CONFIG[@]}"
+    fi
+
+    # --- FUNCTION: Create or Update Client ---
+    configure_client() {
+      local CLIENT_ID=$1
+      local CLIENT_SECRET=$2
+      local REDIRECT_URI=$3
+
+      echo "Configuring client: $CLIENT_ID"
+
+      # Get client UUID if exists
+      CLIENT_UUID=$($KCADM get clients -r $REALM --query clientId=$CLIENT_ID --fields id --format csv 2>/dev/null | tail -1 | tr -d '"')
+
+      CLIENT_CONFIG=(
+        -s clientId=$CLIENT_ID
+        -s enabled=true
+        -s clientAuthenticatorType=client-secret
+        -s secret=$CLIENT_SECRET
+        -s "redirectUris=[\"$REDIRECT_URI\",\"http://localhost:*\"]"
+        -s 'webOrigins=["*"]'
+        -s protocol=openid-connect
+        -s publicClient=false
+        -s standardFlowEnabled=true
+        -s directAccessGrantsEnabled=true
+        -s serviceAccountsEnabled=true
+      )
+
+      if [ -n "$CLIENT_UUID" ]; then
+        echo "Client $CLIENT_ID exists ($CLIENT_UUID), updating..."
+        $KCADM update clients/$CLIENT_UUID -r $REALM "${CLIENT_CONFIG[@]}"
+      else
+        echo "Creating client $CLIENT_ID..."
+        $KCADM create clients -r $REALM "${CLIENT_CONFIG[@]}"
+      fi
+    }
+
+    # Configure clients
+    configure_client "gitea-service" "$GITEA_CLIENT_SECRET" "http://gitea-service.dev-platform.svc.cluster.local:8081/*"
+    configure_client "ldap-manager-service" "$LDAP_MANAGER_CLIENT_SECRET" "http://ldap-manager.dev-platform.svc.cluster.local:8080/*"
+    configure_client "frontend-admin" "$FRONTEND_ADMIN_CLIENT_SECRET" "http://frontend-admin.dev-platform.svc.cluster.local:3000/*"
+
+    # --- ROLES ---
+    echo "Configuring realm roles..."
+    for ROLE in developer admin user; do
+      if $KCADM get roles -r $REALM --rolename $ROLE > /dev/null 2>&1; then
+        echo "Role $ROLE exists"
+      else
+        echo "Creating role $ROLE..."
+        $KCADM create roles -r $REALM -s name=$ROLE
+      fi
+    done
+
+    echo "Configuration completed successfully!"
+
+---
+# Job to configure Keycloak with LDAP federation
+# IDEMPOTENT: Safe to re-run on every deployment
+# Delete existing job before applying: kubectl delete job keycloak-ldap-config -n auth-system --ignore-not-found
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-ldap-config
+  namespace: auth-system
+  annotations:
+    description: "Idempotent Keycloak configuration - creates or updates realm, LDAP, clients"
+spec:
+  ttlSecondsAfterFinished: 300  # Auto-cleanup 5 min after completion
+  template:
+    metadata:
+      labels:
+        app: keycloak-config
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: config
+          image: quay.io/keycloak/keycloak:23.0
+          command: ["/bin/bash", "/scripts/configure-ldap.sh"]
+          env:
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-secret
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-secret
+                  key: KEYCLOAK_ADMIN_PASSWORD
+            - name: LDAP_BIND_PASSWORD
+              value: "admin_password_change_me"  # Should match OpenLDAP admin password
+            - name: GITEA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: gitea-service-secret
+            - name: LDAP_MANAGER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: ldap-manager-secret
+            - name: FRONTEND_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: frontend-admin-secret
+          volumeMounts:
+            - name: config-script
+              mountPath: /scripts
+      volumes:
+        - name: config-script
+          configMap:
+            name: keycloak-ldap-config-script
+            defaultMode: 0755
+  backoffLimit: 5

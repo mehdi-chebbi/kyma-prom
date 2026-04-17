@@ -1,0 +1,61 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Binaries & archives
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.tar
+*.tar.gz
+*.zip
+
+# Go
+*.test
+*.out
+coverage.html
+vendor/
+go.work
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# Kubernetes local secrets
+k8s/*-secret.yaml.local
+
+# Temp files
+tmp/
+temp/

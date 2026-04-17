@@ -1,0 +1,238 @@
+.groups-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  color: var(--light-purple-900);
+  padding: 1rem 0;
+}
+
+.groups-page-title h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.groups-page-title p {
+  margin: 0;
+  color: var(--light-purple-500);
+  font-size: 0.9rem;
+}
+
+.groups-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  gap: 1.5rem;
+  min-height: 500px;
+}
+
+/* ── Left Panel: Group List ── */
+
+.groups-panel {
+  background: var(--bg-black-200, #1e1e2e);
+  border: 1px solid var(--bg-black-400, #333);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.groups-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.groups-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.groups-create-btn {
+  background: var(--light-purple-500, #a78bfa);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.groups-create-btn:hover {
+  background: var(--light-purple-700, #7c3aed);
+}
+
+.group-card {
+  background: var(--bg-black-300, #2a2a3e);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.group-card:hover {
+  border-color: var(--light-purple-500, #a78bfa);
+}
+
+.group-card.selected {
+  border-color: var(--light-purple-500, #a78bfa);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.group-card-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.group-card-meta {
+  font-size: 0.8rem;
+  color: var(--light-purple-500);
+  margin-top: 0.25rem;
+}
+
+.group-card-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.group-delete-btn {
+  background: none;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.group-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ── Center Panel: Group Detail ── */
+
+.group-detail {
+  background: var(--bg-black-200, #1e1e2e);
+  border: 1px solid var(--bg-black-400, #333);
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.group-detail-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.group-detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--light-purple-500);
+  font-size: 0.95rem;
+}
+
+.drop-zone {
+  border: 2px dashed var(--bg-black-400, #444);
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 120px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.drop-zone.drag-over {
+  border-color: var(--light-purple-500, #a78bfa);
+  background: rgba(167, 139, 250, 0.05);
+}
+
+.drop-zone h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--light-purple-500);
+}
+
+.member-chip, .repo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-black-300, #2a2a3e);
+  border: 1px solid var(--bg-black-400, #444);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  margin: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: #f87171;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.chip-remove:hover {
+  color: #ef4444;
+}
+
+/* ── Right Panel: Available Items ── */
+
+.available-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.available-section {
+  background: var(--bg-black-200, #1e1e2e);
+  border: 1px solid var(--bg-black-400, #333);
+  border-radius: 10px;
+  padding: 1rem;
+  flex: 1;
+}
+
+.available-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.draggable-item {
+  background: var(--bg-black-300, #2a2a3e);
+  border: 1px solid var(--bg-black-400, #444);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.4rem;
+  cursor: grab;
+  font-size: 0.85rem;
+  transition: border-color 0.2s;
+  user-select: none;
+}
+
+.draggable-item:hover {
+  border-color: var(--light-purple-500, #a78bfa);
+}
+
+.draggable-item:active {
+  cursor: grabbing;
+}
+
+.draggable-item.in-group {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 1000px) {
+  .groups-layout {
+    grid-template-columns: 1fr;
+  }
+}

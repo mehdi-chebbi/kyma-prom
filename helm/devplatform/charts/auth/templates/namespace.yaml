@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "auth.namespace" . }}
+  labels:
+    name: {{ include "auth.namespace" . }}
+    {{- if .Values.global.istio.enabled }}
+    istio-injection: enabled
+    {{- end }}
+    {{- include "auth.labels" . | nindent 4 }}

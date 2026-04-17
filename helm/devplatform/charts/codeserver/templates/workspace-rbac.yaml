@@ -1,0 +1,57 @@
+# RBAC for workspace pods to create Kaniko build Jobs and read Harbor registry secrets
+# Workspace pods use the "workspace-builder" ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workspace-builder
+  namespace: {{ .Values.instanceNamespace }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workspace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workspace-builder
+  namespace: {{ .Values.instanceNamespace }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workspace
+rules:
+  # Allow creating/managing Kaniko build Jobs
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  # Allow reading Harbor credentials secret
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["harbor-credentials"]
+    verbs: ["get"]
+  # Allow reading workspace PVCs (kaniko Jobs mount the user's PVC)
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+  # Allow reading pod logs (for tailing build logs)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workspace-builder
+  namespace: {{ .Values.instanceNamespace }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workspace
+subjects:
+  - kind: ServiceAccount
+    name: workspace-builder
+    namespace: {{ .Values.instanceNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: workspace-builder

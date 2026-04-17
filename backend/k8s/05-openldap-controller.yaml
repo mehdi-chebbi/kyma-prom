@@ -1,0 +1,211 @@
+---
+# ServiceAccount for the OpenLDAP Controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openldap-controller
+  namespace: dev-platform
+  labels:
+    app.kubernetes.io/name: openldap-controller
+    app.kubernetes.io/component: controller
+
+---
+# ClusterRole with permissions to manage OpenLDAP resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openldap-controller
+  labels:
+    app.kubernetes.io/name: openldap-controller
+rules:
+  # Namespaces
+  - apiGroups: [""]
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+
+  # Core resources
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - secrets
+      - services
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # Events for recording
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+
+  # StatefulSets for OpenLDAP
+  - apiGroups: ["apps"]
+    resources:
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # PersistentVolumeClaims
+  - apiGroups: [""]
+    resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openldap-controller
+  labels:
+    app.kubernetes.io/name: openldap-controller
+subjects:
+  - kind: ServiceAccount
+    name: openldap-controller
+    namespace: dev-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openldap-controller
+
+---
+# ConfigMap for controller configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openldap-controller-config
+  namespace: dev-platform
+  labels:
+    app.kubernetes.io/name: openldap-controller
+data:
+  NAMESPACE: "dev-platform"
+  LOG_LEVEL: "info"
+  BASE_DN: "dc=devplatform,dc=local"
+
+---
+# Secret for LDAP admin credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openldap-controller-secret
+  namespace: dev-platform
+  labels:
+    app.kubernetes.io/name: openldap-controller
+type: Opaque
+stringData:
+  ADMIN_PASSWORD: "admin123"
+
+---
+# Deployment for the OpenLDAP Controller
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openldap-controller
+  namespace: dev-platform
+  labels:
+    app.kubernetes.io/name: openldap-controller
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openldap-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openldap-controller
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: openldap-controller
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: controller
+          image: openldap-controller:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --namespace=$(NAMESPACE)
+            - --base-dn=$(BASE_DN)
+            - --admin-password=$(ADMIN_PASSWORD)
+            - --log-level=$(LOG_LEVEL)
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-controller-config
+                  key: NAMESPACE
+            - name: BASE_DN
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-controller-config
+                  key: BASE_DN
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: openldap-controller-config
+                  key: LOG_LEVEL
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-controller-secret
+                  key: ADMIN_PASSWORD
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+---
+# Service for controller (optional, for metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap-controller
+  namespace: dev-platform
+  labels:
+    app.kubernetes.io/name: openldap-controller
+spec:
+  selector:
+    app.kubernetes.io/name: openldap-controller
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: ClusterIP

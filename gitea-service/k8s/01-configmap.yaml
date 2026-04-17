@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-service-config
+  namespace: dev-platform
+data:
+  # Gitea configuration (ClusterIP service for internal communication)
+  GITEA_URL: "http://gitea.dev-platform.svc.cluster.local:3000"
+
+  # Gitea admin config (for auto token generation)
+  GITEA_ADMIN_USER: "gitea_admin"
+  GITEA_ADMIN_EMAIL: "admin@local.dev"
+  GITEA_DEFAULT_OWNER: "gitea_admin"
+
+  # LDAP Manager service URL (inter-service communication)
+  LDAP_MANAGER_URL: "http://ldap-manager.dev-platform.svc.cluster.local:30008"
+
+  # Server configuration
+  PORT: "8081"
+  METRICS_PORT: "9091"
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+
+  # HTTP client timeout
+  HTTP_CLIENT_TIMEOUT: "30s"
+
+  # JWT configuration
+  JWT_EXPIRATION: "24h"
+
+  # CORS configuration
+  CORS_ORIGINS: "*"
+
+  # Graceful shutdown
+  SHUTDOWN_TIMEOUT: "30"
+
+  # Reconciliation controller
+  RECONCILE_INTERVAL: "5m"
+  WEBHOOK_CHECK_INTERVAL: "2m"
+  WEBHOOK_TARGET_HOST: "gitea-sync-controller.dev-platform.svc.cluster.local:8081"
+  RECONCILE_ENABLED: "true"
+  GROUP_SYNC_INTERVAL: "5m"
+
+  # Keycloak configuration (controller auth)
+  KEYCLOAK_URL: "http://keycloak.auth-system.svc.cluster.local:8080"
+  KEYCLOAK_REALM: "devplatform"
+  KEYCLOAK_CLIENT_ID: "gitea-service"

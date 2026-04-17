@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codeserver-service-config
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+data:
+  PORT: "8082"
+  METRICS_PORT: "9092"
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  SHUTDOWN_TIMEOUT: "30"
+  CODESERVER_NAMESPACE: {{ .Values.instanceNamespace | quote }}
+  PVC_STORAGE_CLASS: {{ .Values.global.storageClass | quote }}
+  PVC_SIZE: {{ .Values.pvcSize | quote }}
+  CODESERVER_IMAGE: {{ .Values.codeserverImage | quote }}
+  CODESERVER_CPU_REQUEST: {{ .Values.codeserverResources.cpuRequest | quote }}
+  CODESERVER_MEMORY_REQUEST: {{ .Values.codeserverResources.memoryRequest | quote }}
+  CODESERVER_CPU_LIMIT: {{ .Values.codeserverResources.cpuLimit | quote }}
+  CODESERVER_MEMORY_LIMIT: {{ .Values.codeserverResources.memoryLimit | quote }}
+  CODESERVER_TIMEOUT: {{ .Values.timeout | quote }}
+  GITEA_URL: {{ .Values.global.gitea.url | quote }}
+  GITEA_SERVICE_URL: "http://gitea-service.dev-platform.svc.cluster.local:30011"
+  KEYCLOAK_URL: "https://keycloak.devplatform.local"
+  KEYCLOAK_REALM: {{ .Values.global.keycloak.realm | quote }}
+  BASE_DOMAIN: {{ .Values.global.domain | quote }}
+  USE_HTTPS: "true"
+  CORS_ORIGINS: "*"

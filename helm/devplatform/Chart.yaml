@@ -1,0 +1,25 @@
+apiVersion: v2
+name: devplatform
+description: KYMA DevPlatform - Umbrella Helm Chart
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: auth
+    version: 0.1.0
+    condition: auth.enabled
+  - name: openldap
+    version: 0.1.0
+    condition: openldap.enabled
+  - name: ldap-manager
+    version: 0.1.0
+    condition: ldap-manager.enabled
+  - name: gitea
+    version: 0.1.0
+    condition: gitea.enabled
+  - name: gitea-service
+    version: 0.1.0
+    condition: gitea-service.enabled
+  - name: codeserver
+    version: 0.1.0
+    condition: codeserver.enabled

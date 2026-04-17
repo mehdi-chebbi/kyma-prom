@@ -1,0 +1,186 @@
+{{- if .Values.global.istio.enabled }}
+---
+# Gateway for CodeServer Service API (dev-platform namespace)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: codeserver-service-gateway
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "codeserver.devplatform.local"
+        - "*.codeserver.devplatform.local"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: codeserver-tls
+      hosts:
+        - "codeserver.devplatform.local"
+        - "*.codeserver.devplatform.local"
+---
+# Gateway for CodeServer user instances (codeserver-instances namespace)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: codeserver-gateway
+  namespace: codeserver-instances
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "code-*.devplatform.local"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: codeserver-tls
+      hosts:
+        - "code-*.devplatform.local"
+---
+# VirtualService for CodeServer Service API routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: codeserver-service
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - "codeserver.devplatform.local"
+  gateways:
+    - codeserver-service-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /graphql
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30012
+      timeout: 60s
+    - match:
+        - uri:
+            prefix: /health
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30012
+    - match:
+        - uri:
+            prefix: /ready
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30012
+    - match:
+        - uri:
+            prefix: /metrics
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30014
+---
+# DestinationRule for CodeServer Service traffic policy
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: codeserver-service
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  host: codeserver-service.dev-platform.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        maxRequestsPerConnection: 0
+    tls:
+      mode: ISTIO_MUTUAL
+---
+# PeerAuthentication for enforcing mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: codeserver-service
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: codeserver-service
+  mtls:
+    mode: STRICT
+---
+# RequestAuthentication for JWT validation via Keycloak
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: codeserver-service-jwt
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: codeserver-service
+  jwtRules:
+    - issuer: "https://keycloak.devplatform.local/realms/devplatform"
+      jwksUri: "https://keycloak.devplatform.local/realms/devplatform/protocol/openid-connect/certs"
+      forwardOriginalToken: true
+---
+# AuthorizationPolicy for access control
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: codeserver-service-policy
+  namespace: {{ include "codeserver.namespace" . }}
+  labels:
+    {{- include "codeserver.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: codeserver-service
+  rules:
+    # Allow health, ready, and metrics without authentication
+    - to:
+        - operation:
+            paths: ["/health", "/ready", "/metrics"]
+    # Require authenticated principals for GraphQL
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            paths: ["/graphql"]
+            methods: ["POST", "OPTIONS"]
+{{- end }}

@@ -1,0 +1,160 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: codeserver-service-gateway
+  namespace: dev-platform
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "codeserver.devplatform.local"
+        - "*.codeserver.devplatform.local"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: codeserver-tls
+      hosts:
+        - "codeserver.devplatform.local"
+        - "*.codeserver.devplatform.local"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: codeserver-gateway
+  namespace: codeserver-instances
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "code-*.devplatform.local"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: codeserver-tls
+      hosts:
+        - "code-*.devplatform.local"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: codeserver-service
+  namespace: dev-platform
+spec:
+  hosts:
+    - "codeserver.devplatform.local"
+  gateways:
+    - codeserver-service-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /graphql
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30012
+      timeout: 60s
+    - match:
+        - uri:
+            prefix: /health
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30012
+    - match:
+        - uri:
+            prefix: /ready
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30012
+    - match:
+        - uri:
+            prefix: /metrics
+      route:
+        - destination:
+            host: codeserver-service.dev-platform.svc.cluster.local
+            port:
+              number: 30014
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: codeserver-service
+  namespace: dev-platform
+spec:
+  host: codeserver-service.dev-platform.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        maxRequestsPerConnection: 0
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: codeserver-service
+  namespace: dev-platform
+spec:
+  selector:
+    matchLabels:
+      app: codeserver-service
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: codeserver-service-jwt
+  namespace: dev-platform
+spec:
+  selector:
+    matchLabels:
+      app: codeserver-service
+  jwtRules:
+    - issuer: "https://keycloak.devplatform.local/realms/devplatform"
+      jwksUri: "https://keycloak.devplatform.local/realms/devplatform/protocol/openid-connect/certs"
+      forwardOriginalToken: true
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: codeserver-service-policy
+  namespace: dev-platform
+spec:
+  selector:
+    matchLabels:
+      app: codeserver-service
+  rules:
+    - to:
+        - operation:
+            paths: ["/health", "/ready", "/metrics"]
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            paths: ["/graphql"]
+            methods: ["POST", "OPTIONS"]

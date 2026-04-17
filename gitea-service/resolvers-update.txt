@@ -1,0 +1,137 @@
+// Resolvers to add/update in schema.go after line 339 (after resolveHealth)
+
+func (s *Schema) resolveListRepositories(p graphql.ResolveParams) (interface{}, error) {
+	limit := p.Args["limit"].(int)
+	offset := p.Args["offset"].(int)
+
+	if limit > 100 {
+		limit = 100
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	allRepos, err := s.giteaClient.ListRepositories()
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to list repositories")
+		return nil, fmt.Errorf("failed to list repositories: %w", err)
+	}
+
+	total := len(allRepos)
+	start := offset
+	end := offset + limit
+
+	if start > total {
+		start = total
+	}
+	if end > total {
+		end = total
+	}
+
+	paginatedRepos := allRepos[start:end]
+
+	return map[string]interface{}{
+		"items":   s.convertGiteaReposToMap(paginatedRepos),
+		"total":   total,
+		"limit":   limit,
+		"offset":  offset,
+		"hasMore": end < total,
+	}, nil
+}
+
+func (s *Schema) resolveGetRepository(p graphql.ResolveParams) (interface{}, error) {
+	owner := p.Args["owner"].(string)
+	name := p.Args["name"].(string)
+
+	repo, err := s.giteaClient.GetRepository(owner, name)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get repository")
+		return nil, fmt.Errorf("failed to get repository: %w", err)
+	}
+
+	return s.convertGiteaRepoToMap(repo), nil
+}
+
+func (s *Schema) resolveDeleteRepository(p graphql.ResolveParams) (interface{}, error) {
+	owner := p.Args["owner"].(string)
+	name := p.Args["name"].(string)
+
+	err := s.giteaClient.DeleteRepository(owner, name)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to delete repository")
+		return false, fmt.Errorf("failed to delete repository: %w", err)
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"owner": owner,
+		"name":  name,
+	}).Info("Repository deleted successfully")
+
+	return true, nil
+}
+
+func (s *Schema) resolveUpdateRepository(p graphql.ResolveParams) (interface{}, error) {
+	owner := p.Args["owner"].(string)
+	name := p.Args["name"].(string)
+
+	updates := make(map[string]interface{})
+	if desc, ok := p.Args["description"].(string); ok {
+		updates["description"] = desc
+	}
+	if private, ok := p.Args["private"].(bool); ok {
+		updates["private"] = private
+	}
+	if branch, ok := p.Args["defaultBranch"].(string); ok {
+		updates["default_branch"] = branch
+	}
+
+	repo, err := s.giteaClient.UpdateRepository(owner, name, updates)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to update repository")
+		return nil, fmt.Errorf("failed to update repository: %w", err)
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"owner": owner,
+		"name":  name,
+	}).Info("Repository updated successfully")
+
+	return s.convertGiteaRepoToMap(repo), nil
+}
+
+// Helper function to convert Gitea repos to map format
+func (s *Schema) convertGiteaReposToMap(repos []*gitea.Repository) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(repos))
+	for i, repo := range repos {
+		result[i] = s.convertGiteaRepoToMap(repo)
+	}
+	return result
+}
+
+func (s *Schema) convertGiteaRepoToMap(repo *gitea.Repository) map[string]interface{} {
+	return map[string]interface{}{
+		"id":            repo.ID,
+		"name":          repo.Name,
+		"fullName":      repo.FullName,
+		"description":   repo.Description,
+		"private":       repo.Private,
+		"fork":          repo.Fork,
+		"htmlUrl":       repo.HTMLURL,
+		"sshUrl":        repo.SSHURL,
+		"cloneUrl":      repo.CloneURL,
+		"defaultBranch": repo.DefaultBranch,
+		"language":      repo.Language,
+		"stars":         repo.Stars,
+		"forks":         repo.Forks,
+		"size":          repo.Size,
+		"createdAt":     repo.CreatedAt.Format(time.RFC3339),
+		"updatedAt":     repo.UpdatedAt.Format(time.RFC3339),
+		"owner": map[string]interface{}{
+			"id":        repo.Owner.ID,
+			"login":     repo.Owner.Login,
+			"fullName":  repo.Owner.FullName,
+			"email":     repo.Owner.Email,
+			"avatarUrl": repo.Owner.AvatarURL,
+		},
+	}
+}

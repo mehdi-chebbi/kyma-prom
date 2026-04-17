@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codeserver-service-config
+  namespace: dev-platform
+data:
+  PORT: "8082"
+  METRICS_PORT: "9092"
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  SHUTDOWN_TIMEOUT: "30"
+  CODESERVER_NAMESPACE: "codeserver-instances"
+  PVC_STORAGE_CLASS: "local-path"
+  PVC_SIZE: "10Gi"
+  CODESERVER_IMAGE: "codercom/code-server:latest"
+  CODESERVER_CPU_REQUEST: "500m"
+  CODESERVER_MEMORY_REQUEST: "1Gi"
+  CODESERVER_CPU_LIMIT: "2"
+  CODESERVER_MEMORY_LIMIT: "4Gi"
+  CODESERVER_TIMEOUT: "300"
+  GITEA_URL: "http://gitea.dev-platform.svc.cluster.local:3000"
+  GITEA_SERVICE_URL: "http://gitea-service.dev-platform.svc.cluster.local:30011"
+  KEYCLOAK_URL: "https://keycloak.devplatform.local"
+  KEYCLOAK_REALM: "devplatform"
+  BASE_DOMAIN: "devplatform.local"
+  USE_HTTPS: "true"
+  CORS_ORIGINS: "*"
