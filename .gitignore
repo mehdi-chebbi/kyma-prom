@@ -32,10 +32,7 @@ coverage.html
 vendor/
 go.work
 
-# Environment & secrets
-.env
-.env.local
-.env.*.local
+
 *.local
 
 # Editor directories and files

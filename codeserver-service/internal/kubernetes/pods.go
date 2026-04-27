@@ -304,6 +304,126 @@ for ext in $EXTENSIONS; do
     fi
 done
 
+echo "=== Installing DevPlatform Build extension ==="
+
+DEVPLATFORM_EXT_DIR="${EXTENSIONS_DIR}/devplatform.devplatform-build-0.1.0-universal"
+mkdir -p "${DEVPLATFORM_EXT_DIR}"
+
+cat > "${DEVPLATFORM_EXT_DIR}/package.json" << 'EXTPKG'
+{
+  "name": "devplatform-build",
+  "displayName": "DevPlatform Build",
+  "description": "Build and push Docker images to Harbor using Kaniko",
+  "version": "0.1.0",
+  "publisher": "devplatform",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onView:devplatform-build-view"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "devplatform.buildImage",
+        "title": "DevPlatform: Build Image"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devplatform-build-container",
+          "title": "Build",
+          "icon": "icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "devplatform-build-container": [
+        {
+          "id": "devplatform-build-view",
+          "name": "Build Image"
+        }
+      ]
+    }
+  }
+}
+EXTPKG
+
+cat > "${DEVPLATFORM_EXT_DIR}/extension.js" << 'EXTJS'
+const vscode = require('vscode');
+
+function activate(context) {
+    context.subscriptions.push(
+        vscode.commands.registerCommand('devplatform.buildImage', async () => {
+            try {
+                const files = await vscode.workspace.findFiles('**/[Dd]ockerfile*', '**/node_modules/**', 100);
+                if (files.length === 0) {
+                    vscode.window.showWarningMessage('No Dockerfile found in workspace');
+                    return;
+                }
+                const items = files.map(f => ({
+                    label: vscode.workspace.asRelativePath(f),
+                    detail: f.fsPath
+                }));
+                const picked = await vscode.window.showQuickPick(items, {
+                    placeHolder: 'Select a Dockerfile to build',
+                    title: 'Build Image'
+                });
+                if (!picked) return;
+                const contextInput = await vscode.window.showInputBox({
+                    prompt: 'Build context directory (leave empty to use Dockerfile directory)',
+                    placeHolder: './'
+                });
+                if (contextInput === undefined) return;
+                let cmd = 'build --dockerfile "' + picked.detail + '"';
+                if (contextInput.trim() && contextInput.trim() !== './') {
+                    cmd += ' --context "' + contextInput.trim() + '"';
+                }
+                const terminal = vscode.window.createTerminal('Build Image');
+                terminal.show();
+                terminal.sendText(cmd);
+                vscode.window.showInformationMessage('Building image from ' + picked.label + '...');
+            } catch (err) {
+                vscode.window.showErrorMessage('Build error: ' + err.message);
+            }
+        })
+    );
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider('devplatform-build-view', new BuildTreeProvider())
+    );
+}
+
+class BuildTreeProvider {
+    getTreeItem(element) { return element; }
+    getChildren(element) {
+        if (element) return [];
+        const item = new vscode.TreeItem('Build Image', vscode.TreeItemCollapsibleState.None);
+        item.command = { command: 'devplatform.buildImage', title: 'Build Image' };
+        item.iconPath = new vscode.ThemeIcon('package');
+        item.tooltip = 'Build and push Docker image using Kaniko';
+        item.description = 'Kaniko to Harbor';
+        return [item];
+    }
+}
+
+function deactivate() {}
+
+module.exports = { activate, deactivate };
+EXTJS
+
+cat > "${DEVPLATFORM_EXT_DIR}/icon.svg" << 'EXTSVG'
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7v10l10 5 10-5V7L12 2z"/><path d="M2 7l10 5 10-5"/><path d="M12 22V12"/></svg>
+EXTSVG
+
+# Register extension in extensions.json
+EXT_JSON="${EXTENSIONS_DIR}/extensions.json"
+if [ -f "${EXT_JSON}" ]; then
+    # Remove trailing ] and add new entry
+    sed -i 's/\]$/,/' "${EXT_JSON}"
+    cat >> "${EXT_JSON}" << 'EXTENTRY'
+{"identifier":{"id":"devplatform.devplatform-build"},"version":"0.1.0","location":{"$mid":1,"path":"/home/coder/workspace/.userdata/.vscode-extensions/devplatform.devplatform-build-0.1.0-universal","scheme":"file"},"relativeLocation":"devplatform.devplatform-build-0.1.0-universal","metadata":{"installedTimestamp":1745780000000,"pinned":false,"source":"gallery","targetPlatform":"universal","updated":false}}]
+EXTENTRY
+fi
+
 echo "=== Extensions installation completed ==="
 `
 
