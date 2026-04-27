@@ -23,3 +23,6 @@ dependencies:
   - name: codeserver
     version: 0.1.0
     condition: codeserver.enabled
+  - name: zot
+    version: 0.1.0
+    condition: zot.enabled

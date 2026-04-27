@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zot
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "zot.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zot
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zot
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "true"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      serviceAccountName: zot
+      containers:
+        - name: zot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "serve"
+            - "/etc/zot/config.json"
+          ports:
+            - containerPort: 5000
+              name: http
+              protocol: TCP
+          volumeMounts:
+            - name: zot-config
+              mountPath: /etc/zot
+              readOnly: true
+            - name: zot-data
+              mountPath: /var/lib/registry
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+      volumes:
+        - name: zot-config
+          configMap:
+            name: zot-config
+        - name: zot-data
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: zot-data
+        {{- else }}
+          emptyDir: {}
+        {{- end }}

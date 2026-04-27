@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zot-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "zot.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {
+      "distSpecVersion": {{ .Values.config.distSpecVersion | quote }},
+      "storage": {
+        "rootDirectory": {{ .Values.config.storage.rootDirectory | quote }},
+        "gc": {{ .Values.config.storage.gc }},
+        "gcDelay": {{ .Values.config.storage.gcDelay | quote }},
+        "gcInterval": {{ .Values.config.storage.gcInterval | quote }},
+        "dedupe": {{ .Values.config.storage.dedupe }}
+      },
+      "http": {
+        "address": {{ .Values.config.http.address | quote }},
+        "port": {{ .Values.config.http.port | quote }}
+      },
+      "log": {
+        "level": {{ .Values.config.log.level | quote }}
+      },
+      "extensions": {
+        "metrics": {
+          "enable": {{ .Values.config.extensions.metrics.enable }},
+          "prometheus": {
+            "path": {{ .Values.config.extensions.metrics.prometheus.path | quote }}
+          }
+        },
+        "search": {
+          "enable": {{ .Values.config.extensions.search.enable }}
+        },
+        "ui": {
+          "enable": {{ .Values.config.extensions.ui.enable }}
+        }
+      }
+    }

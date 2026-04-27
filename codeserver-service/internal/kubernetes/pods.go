@@ -223,6 +223,7 @@ alias gl='git pull'
 alias gc='git commit'
 alias gd='git diff'
 alias build='/home/coder/workspace/.userdata/bin/build'
+alias build-dev='/home/coder/workspace/.userdata/bin/build-dev'
 
 # Show git branch in prompt
 parse_git_branch() {
@@ -313,7 +314,7 @@ cat > "${DEVPLATFORM_EXT_DIR}/package.json" << 'EXTPKG'
 {
   "name": "devplatform-build",
   "displayName": "DevPlatform Build",
-  "description": "Build and push Docker images to Harbor using Kaniko",
+  "description": "Build and push Docker images using Kaniko",
   "version": "0.1.0",
   "publisher": "devplatform",
   "engines": { "vscode": "^1.60.0" },
@@ -324,7 +325,11 @@ cat > "${DEVPLATFORM_EXT_DIR}/package.json" << 'EXTPKG'
     "commands": [
       {
         "command": "devplatform.buildImage",
-        "title": "DevPlatform: Build Image"
+        "title": "DevPlatform: Build Image (Harbor)"
+      },
+      {
+        "command": "devplatform.buildImageZot",
+        "title": "DevPlatform: Build Image (Zot Dev)"
       }
     ],
     "viewsContainers": {
@@ -351,42 +356,59 @@ EXTPKG
 cat > "${DEVPLATFORM_EXT_DIR}/extension.js" << 'EXTJS'
 const vscode = require('vscode');
 
+async function pickDockerfile(title) {
+    const files = await vscode.workspace.findFiles('**/[Dd]ockerfile*', '**/node_modules/**', 100);
+    if (files.length === 0) {
+        vscode.window.showWarningMessage('No Dockerfile found in workspace');
+        return null;
+    }
+    const items = files.map(f => ({
+        label: vscode.workspace.asRelativePath(f),
+        detail: f.fsPath
+    }));
+    const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Select a Dockerfile to build',
+        title: title
+    });
+    if (!picked) return null;
+    return { dockerfile: picked.detail, label: picked.label };
+}
+
 function activate(context) {
+    // Build and push to Harbor (Production)
     context.subscriptions.push(
         vscode.commands.registerCommand('devplatform.buildImage', async () => {
             try {
-                const files = await vscode.workspace.findFiles('**/[Dd]ockerfile*', '**/node_modules/**', 100);
-                if (files.length === 0) {
-                    vscode.window.showWarningMessage('No Dockerfile found in workspace');
-                    return;
-                }
-                const items = files.map(f => ({
-                    label: vscode.workspace.asRelativePath(f),
-                    detail: f.fsPath
-                }));
-                const picked = await vscode.window.showQuickPick(items, {
-                    placeHolder: 'Select a Dockerfile to build',
-                    title: 'Build Image'
-                });
-                if (!picked) return;
-                const contextInput = await vscode.window.showInputBox({
-                    prompt: 'Build context directory (leave empty to use Dockerfile directory)',
-                    placeHolder: './'
-                });
-                if (contextInput === undefined) return;
-                let cmd = 'build --dockerfile "' + picked.detail + '"';
-                if (contextInput.trim() && contextInput.trim() !== './') {
-                    cmd += ' --context "' + contextInput.trim() + '"';
-                }
-                const terminal = vscode.window.createTerminal('Build Image');
+                const input = await pickDockerfile('Build Image - Harbor (Prod)');
+                if (!input) return;
+                const cmd = 'build --dockerfile "' + input.dockerfile + '"';
+                const terminal = vscode.window.createTerminal('Build Image (Harbor)');
                 terminal.show();
                 terminal.sendText(cmd);
-                vscode.window.showInformationMessage('Building image from ' + picked.label + '...');
+                vscode.window.showInformationMessage('Building image for Harbor from ' + input.label + '...');
             } catch (err) {
                 vscode.window.showErrorMessage('Build error: ' + err.message);
             }
         })
     );
+
+    // Build and push to Zot (Dev)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('devplatform.buildImageZot', async () => {
+            try {
+                const input = await pickDockerfile('Build Image - Zot (Dev)');
+                if (!input) return;
+                const cmd = 'build-dev --dockerfile "' + input.dockerfile + '"';
+                const terminal = vscode.window.createTerminal('Build Image (Zot Dev)');
+                terminal.show();
+                terminal.sendText(cmd);
+                vscode.window.showInformationMessage('Building image for Zot (Dev) from ' + input.label + '...');
+            } catch (err) {
+                vscode.window.showErrorMessage('Build error: ' + err.message);
+            }
+        })
+    );
+
     context.subscriptions.push(
         vscode.window.registerTreeDataProvider('devplatform-build-view', new BuildTreeProvider())
     );
@@ -396,12 +418,20 @@ class BuildTreeProvider {
     getTreeItem(element) { return element; }
     getChildren(element) {
         if (element) return [];
-        const item = new vscode.TreeItem('Build Image', vscode.TreeItemCollapsibleState.None);
-        item.command = { command: 'devplatform.buildImage', title: 'Build Image' };
-        item.iconPath = new vscode.ThemeIcon('package');
-        item.tooltip = 'Build and push Docker image using Kaniko';
-        item.description = 'Kaniko to Harbor';
-        return [item];
+
+        const harborItem = new vscode.TreeItem('Build Image (Harbor)', vscode.TreeItemCollapsibleState.None);
+        harborItem.command = { command: 'devplatform.buildImage', title: 'Build Image (Harbor)' };
+        harborItem.iconPath = new vscode.ThemeIcon('package');
+        harborItem.tooltip = 'Build and push Docker image to Harbor using Kaniko (Production)';
+        harborItem.description = 'Kaniko → Harbor';
+
+        const zotItem = new vscode.TreeItem('Build Image (Zot Dev)', vscode.TreeItemCollapsibleState.None);
+        zotItem.command = { command: 'devplatform.buildImageZot', title: 'Build Image (Zot Dev)' };
+        zotItem.iconPath = new vscode.ThemeIcon('symbol-property');
+        zotItem.tooltip = 'Build and push Docker image to Zot using Kaniko (Dev)';
+        zotItem.description = 'Kaniko → Zot';
+
+        return [harborItem, zotItem];
     }
 }
 
@@ -759,6 +789,327 @@ fi
 BUILDSCRIPT
 
 chmod +x "${TOOLS_DIR}/build"
+
+# Write the build-dev helper script (pushes to Zot dev registry)
+cat > "${TOOLS_DIR}/build-dev" << 'BUILDDEVSCRIPT'
+#!/bin/bash
+# build-dev - Build and push Docker image to Zot (Dev) using Kaniko
+# Usage: build-dev --dockerfile <path> [--context <path>]
+
+set -e
+
+# Parse arguments
+DOCKERFILE_ARG=""
+CONTEXT_ARG="."
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dockerfile|-f)
+            DOCKERFILE_ARG="$2"
+            shift 2
+            ;;
+        --context|-c)
+            CONTEXT_ARG="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: build-dev --dockerfile <path> [--context <path>]"
+            echo ""
+            echo "Options:"
+            echo "  --dockerfile, -f  Path to Dockerfile (required)"
+            echo "  --context, -c    Build context directory (default: .)"
+            echo ""
+            echo "Pushes to Zot dev registry (no auth, HTTP in-cluster)."
+            echo ""
+            echo "Example:"
+            echo "  build-dev --dockerfile ./Dockerfile"
+            echo "  build-dev --dockerfile ./docker/Dockerfile --context ./app"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Run 'build-dev --help' for usage."
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$DOCKERFILE_ARG" ]; then
+    echo "Error: --dockerfile is required."
+    echo "Usage: build-dev --dockerfile <path>"
+    exit 1
+fi
+
+# Resolve paths relative to current working directory
+WORKSPACE_DIR="/home/coder/workspace"
+REPO_DIR="${WORKSPACE_DIR}/${REPO_NAME}"
+CWD="$(cd "$(dirname "$DOCKERFILE_ARG")" 2>/dev/null && pwd)"
+
+# Resolve full dockerfile path from CWD
+if [[ "$DOCKERFILE_ARG" = /* ]]; then
+    FULL_DOCKERFILE="$DOCKERFILE_ARG"
+else
+    FULL_DOCKERFILE="${CWD}/$(basename "$DOCKERFILE_ARG")"
+fi
+
+# Resolve context path from CWD (default to dockerfile's directory)
+if [[ "$CONTEXT_ARG" = /* ]]; then
+    FULL_CONTEXT="$CONTEXT_ARG"
+elif [ "$CONTEXT_ARG" = "." ]; then
+    FULL_CONTEXT="$CWD"
+else
+    FULL_CONTEXT="${CWD}/${CONTEXT_ARG}"
+fi
+
+# Validate dockerfile exists
+if [ ! -f "$FULL_DOCKERFILE" ]; then
+    echo "Error: Dockerfile not found at ${FULL_DOCKERFILE}"
+    exit 1
+fi
+
+# Validate context exists
+if [ ! -d "$FULL_CONTEXT" ]; then
+    echo "Error: Context directory not found at ${FULL_CONTEXT}"
+    exit 1
+fi
+
+# Compute dockerfile path relative to context
+DOCKERFILE_REL=$(realpath --relative-to="$FULL_CONTEXT" "$FULL_DOCKERFILE" 2>/dev/null || \
+    python3 -c "import os; print(os.path.relpath('$FULL_DOCKERFILE','$FULL_CONTEXT'))" 2>/dev/null || \
+    echo "Dockerfile")
+
+# Compute context path relative to workspace root for the kaniko pod mount
+CONTEXT_SUBPATH=$(realpath --relative-to="$WORKSPACE_DIR" "$FULL_CONTEXT" 2>/dev/null || \
+    python3 -c "import os; print(os.path.relpath('$FULL_CONTEXT','$WORKSPACE_DIR'))" 2>/dev/null || \
+    echo ".")
+KANIKO_CONTEXT="/workspace/${CONTEXT_SUBPATH}"
+
+# Image name: zot.zot.svc.cluster.local:5000/devplatform/<last-folder-name>:latest
+FOLDER_NAME=$(basename "$FULL_CONTEXT")
+IMAGE_NAME="zot.zot.svc.cluster.local:5000/devplatform/${FOLDER_NAME}:latest"
+
+# Sanitize user ID for Kubernetes resource names
+SANITIZED_USER=$(echo "$USER_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[._@]/-/g' | sed 's/^-//;s/-$//')
+JOB_NAME="build-dev-${SANITIZED_USER}-$(date +%s)"
+KUBE_NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+KUBE_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+KUBE_API="https://kubernetes.default.svc"
+KUBE_CA="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+# jq path
+JQ_BIN="/home/coder/workspace/.userdata/bin/jq"
+if [ ! -x "$JQ_BIN" ]; then
+    JQ_BIN=""
+fi
+
+echo "========================================"
+echo "  Kaniko Build (Dev → Zot)"
+echo "========================================"
+echo "Image:      ${IMAGE_NAME}"
+echo "Dockerfile: ${DOCKERFILE_REL}"
+echo "Context:    ${CONTEXT_SUBPATH}"
+echo "Job:        ${JOB_NAME}"
+echo "Registry:   Zot (Dev, HTTP, no auth)"
+echo "========================================"
+
+# Create the Kaniko Job JSON (no credentials volume — Zot has no auth)
+JOB_JSON=$(cat <<ENDJOB
+{
+  "apiVersion": "batch/v1",
+  "kind": "Job",
+  "metadata": {
+    "name": "${JOB_NAME}",
+    "namespace": "${KUBE_NAMESPACE}"
+  },
+  "spec": {
+    "backoffLimit": 0,
+    "ttlSecondsAfterFinished": 300,
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "kaniko-build-dev",
+          "user": "${SANITIZED_USER}"
+        },
+        "annotations": {
+          "sidecar.istio.io/inject": "false"
+        }
+      },
+      "spec": {
+        "restartPolicy": "Never",
+        "containers": [{
+          "name": "kaniko",
+          "image": "gcr.io/kaniko-project/executor:latest",
+          "args": [
+            "--dockerfile=${DOCKERFILE_REL}",
+            "--context=dir://${KANIKO_CONTEXT}",
+            "--destination=${IMAGE_NAME}",
+            "--insecure",
+            "--insecure-registry=zot.zot.svc.cluster.local:5000",
+            "--cache=false",
+            "--verbosity=info"
+          ],
+          "volumeMounts": [
+            {"name": "workspace", "mountPath": "/workspace"}
+          ]
+        }],
+        "volumes": [
+          {"name": "workspace", "persistentVolumeClaim": {"claimName": "${PVC_NAME}"}}
+        ]
+      }
+    }
+  }
+}
+ENDJOB
+)
+
+echo "Creating build job..."
+
+HTTP_CODE=$(curl -sk -o /tmp/kaniko-job-response.json -w "%{http_code}" \
+    -X POST "${KUBE_API}/apis/batch/v1/namespaces/${KUBE_NAMESPACE}/jobs" \
+    -H "Authorization: Bearer ${KUBE_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "${JOB_JSON}")
+
+if [ "$HTTP_CODE" -ne 201 ]; then
+    echo "Error: Failed to create build job (HTTP ${HTTP_CODE})"
+    cat /tmp/kaniko-job-response.json 2>/dev/null || true
+    exit 1
+fi
+
+echo "Job created: ${JOB_NAME}"
+
+# Wait for the build pod to be created
+echo "Waiting for build pod..."
+POD_NAME=""
+for i in $(seq 1 30); do
+    RESPONSE=$(curl -sk -H "Authorization: Bearer ${KUBE_TOKEN}" \
+        "${KUBE_API}/api/v1/namespaces/${KUBE_NAMESPACE}/pods?labelSelector=job-name=${JOB_NAME}" 2>/dev/null)
+    if [ -n "$JQ_BIN" ]; then
+        POD_NAME=$(echo "$RESPONSE" | "$JQ_BIN" -r '.items[0].metadata.name // empty' 2>/dev/null)
+    else
+        POD_NAME=$(echo "$RESPONSE" | grep -o '"name":"[^"]*"' | head -1 | sed 's/"name":"//;s/"//')
+    fi
+    if [ -n "$POD_NAME" ]; then
+        break
+    fi
+    sleep 2
+done
+
+if [ -z "$POD_NAME" ]; then
+    echo "Error: Build pod was not created within 60s"
+    curl -sk -X DELETE "${KUBE_API}/apis/batch/v1/namespaces/${KUBE_NAMESPACE}/jobs/${JOB_NAME}" \
+        -H "Authorization: Bearer ${KUBE_TOKEN}" > /dev/null 2>&1 || true
+    exit 1
+fi
+
+echo "Build pod: ${POD_NAME}"
+
+# Wait for the pod to reach Running phase
+echo "Waiting for build pod to start..."
+POD_RUNNING="false"
+for i in $(seq 1 60); do
+    POD_RESPONSE=$(curl -sk -H "Authorization: Bearer ${KUBE_TOKEN}" \
+        "${KUBE_API}/api/v1/namespaces/${KUBE_NAMESPACE}/pods/${POD_NAME}" 2>/dev/null)
+    if [ -n "$JQ_BIN" ]; then
+        POD_PHASE=$(echo "$POD_RESPONSE" | "$JQ_BIN" -r '.status.phase // ""' 2>/dev/null)
+    else
+        POD_PHASE=$(echo "$POD_RESPONSE" | grep -o '"phase":"[^"]*"' | head -1 | sed 's/"phase":"//;s/"//')
+    fi
+    if [ "$POD_PHASE" = "Running" ]; then
+        POD_RUNNING="true"
+        break
+    fi
+    if [ "$POD_PHASE" = "Failed" ]; then
+        echo "Error: Build pod failed to start"
+        echo "Pod details:"
+        echo "$POD_RESPONSE" 2>/dev/null | head -30
+        echo ""
+        echo "Inspect manually with:"
+        echo "  kubectl describe pod ${POD_NAME} -n ${KUBE_NAMESPACE}"
+        echo "Job kept for debugging (not auto-deleted)."
+        exit 1
+    fi
+    sleep 3
+done
+
+if [ "$POD_RUNNING" = "false" ]; then
+    echo "Error: Build pod did not reach Running state within 180s"
+    echo "It may still be pulling the kaniko image from gcr.io."
+    echo "Check pod status with:"
+    echo "  kubectl get pod ${POD_NAME} -n ${KUBE_NAMESPACE}"
+    echo "Job kept for debugging (not auto-deleted)."
+    exit 1
+fi
+
+echo ""
+echo "=== Build Logs ==="
+echo "----------------------------------------"
+
+# Tail logs (follow until container exits)
+curl -sk -N --max-time 600 \
+    -H "Authorization: Bearer ${KUBE_TOKEN}" \
+    "${KUBE_API}/api/v1/namespaces/${KUBE_NAMESPACE}/pods/${POD_NAME}/log?follow=true&container=kaniko" 2>/dev/null || true
+
+echo ""
+echo "----------------------------------------"
+
+# Wait a moment for job status to settle
+sleep 3
+
+# Check job result
+JOB_RESPONSE=$(curl -sk -H "Authorization: Bearer ${KUBE_TOKEN}" \
+    "${KUBE_API}/apis/batch/v1/namespaces/${KUBE_NAMESPACE}/jobs/${JOB_NAME}" 2>/dev/null)
+
+JOB_SUCCEEDED="false"
+JOB_FAILED="false"
+if [ -n "$JQ_BIN" ]; then
+    JOB_SUCCEEDED=$(echo "$JOB_RESPONSE" | "$JQ_BIN" -r '.status.succeeded // 0' 2>/dev/null)
+    JOB_FAILED=$(echo "$JOB_RESPONSE" | "$JQ_BIN" -r '.status.failed // 0' 2>/dev/null)
+else
+    JOB_SUCCEEDED=$(echo "$JOB_RESPONSE" | grep -o '"succeeded":[0-9]*' | head -1 | grep -o '[0-9]*')
+    JOB_FAILED=$(echo "$JOB_RESPONSE" | grep -o '"failed":[0-9]*' | head -1 | grep -o '[0-9]*')
+fi
+
+if [ "$JOB_SUCCEEDED" != "0" ]; then
+    echo ""
+    echo "========================================"
+    echo "  Build Successful! (Dev → Zot)"
+    echo "========================================"
+    echo "Image: ${IMAGE_NAME}"
+    echo ""
+    echo "Pull it with:"
+    echo "  docker pull ${IMAGE_NAME}"
+    echo ""
+    echo "Verify in Zot:"
+    echo "  curl http://zot.zot.svc.cluster.local:5000/v2/devplatform/${FOLDER_NAME}/tags/list"
+    echo "========================================"
+    # Cleanup only on success
+    echo "Cleaning up build job..."
+    curl -sk -X DELETE "${KUBE_API}/apis/batch/v1/namespaces/${KUBE_NAMESPACE}/jobs/${JOB_NAME}" \
+        -H "Authorization: Bearer ${KUBE_TOKEN}" > /dev/null 2>&1 || true
+    echo "Done."
+else
+    echo ""
+    echo "========================================"
+    echo "  Build Failed (Dev → Zot)"
+    echo "========================================"
+    echo "Check the logs above for errors."
+    echo "Common issues:"
+    echo "  - Invalid Dockerfile syntax"
+    echo "  - Missing files in build context"
+    echo "  - Network issues pulling base images"
+    echo "  - Zot registry not reachable (check zot service in zot namespace)"
+    echo ""
+    echo "Job kept for debugging. Inspect with:"
+    echo "  kubectl describe pod ${POD_NAME} -n ${KUBE_NAMESPACE}"
+    echo "  kubectl logs ${POD_NAME} -n ${KUBE_NAMESPACE}"
+    echo "Clean up manually when done:"
+    echo "  kubectl delete job ${JOB_NAME} -n ${KUBE_NAMESPACE}"
+    echo "========================================"
+    exit 1
+fi
+BUILDDEVSCRIPT
+
+chmod +x "${TOOLS_DIR}/build-dev"
 chown -R 1000:1000 "${TOOLS_DIR}" || true
 
 echo "=== Build tools setup completed ==="
